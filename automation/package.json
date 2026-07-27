@@ -1,0 +1,22 @@
+{
+  "name": "automation",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha tests/setup.js tests/*.test.js --reporter mochawesome --reporter-options reportDir=reports/HTML,reportFilename=execution-report,html=true,json=true --timeout 30000"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "chai": "^6.2.2",
+    "dotenv": "^17.4.2",
+    "exceljs": "^4.4.0",
+    "mocha": "^11.7.6",
+    "mochawesome": "^7.1.4",
+    "mochawesome-report-generator": "^6.3.2",
+    "selenium-webdriver": "^4.46.0"
+  }
+}

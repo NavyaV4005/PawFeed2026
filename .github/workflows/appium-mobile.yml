@@ -1,0 +1,44 @@
+name: PawFeed Appium Mobile Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install PawFeedAppium dependencies
+        working-directory: ./PawFeedAppium
+        run: npm install
+
+      - name: Execute PawFeed 1,511 Mobile Unit & Load Test Suite
+        working-directory: ./PawFeedAppium
+        run: node scripts/run_standalone.js
+
+      - name: Output Summary to GitHub Actions Summary
+        working-directory: ./PawFeedAppium
+        run: node utils/generateSummary.js
+
+      - name: Upload Test Reports Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PawFeed-Appium-Mobile-Reports
+          path: PawFeedAppium/reports/
