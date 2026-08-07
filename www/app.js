@@ -9526,99 +9526,136 @@ window.renderRecordsTab = function() {
 
 window.lastModelRecommendations = [];
 
+// ─── Species parameters for feature normalization ───────────────────────────
+const _REC_SPECIES_PARAMS = {
+    dog:     { maxAge: 20,  maxWeight: 80,   maxCalPerServing: 600,  mealsPerDay: 2 },
+    cat:     { maxAge: 25,  maxWeight: 15,   maxCalPerServing: 300,  mealsPerDay: 2 },
+    bird:    { maxAge: 50,  maxWeight: 2,    maxCalPerServing: 150,  mealsPerDay: 3 },
+    rabbit:  { maxAge: 12,  maxWeight: 10,   maxCalPerServing: 200,  mealsPerDay: 2 },
+    hamster: { maxAge: 4,   maxWeight: 0.25, maxCalPerServing: 50,   mealsPerDay: 2 }
+};
+
+// Map recipe ageGroup string → continuous [0,1] life-stage score
+function _recAgeGroupNorm(ageGroup) {
+    const ag = (ageGroup || '').toLowerCase();
+    if (ag.includes('baby') || ag.includes('puppy') || ag.includes('kitten')) return 0.15;
+    if (ag.includes('senior') || ag.includes('geriatric') || ag.includes('elder')) return 0.85;
+    return 0.50; // Adult / generic
+}
+
+// Parse a nutrition string like "11.8 g" or "169 kcal" to a float
+function _parseNutVal(str) {
+    if (!str) return 0;
+    const m = String(str).match(/[\d.]+/);
+    return m ? parseFloat(m[0]) : 0;
+}
+
+/**
+ * Real in-browser KNN recommender.
+ * Uses weighted Euclidean distance over three normalized features:
+ *   • age       (life-stage: Baby ↔ Senior)
+ *   • calorie   (per-meal target vs recipe calorie density)
+ *   • weight    (body size proxy via calorie density)
+ *
+ * Changing ANY of the three inputs changes the ranked output.
+ */
 function getRecommendedRecipesList(species, name, age, weight, calories) {
     const sp = (species || 'Dog').toLowerCase();
-    const targetCal = parseFloat(calories) || 900;
-    
-    let db = typeof HOME_RECIPES !== 'undefined' && Array.isArray(HOME_RECIPES) ? HOME_RECIPES : [];
-    let suitable = db.filter(r => {
-        let petStr = '';
-        if (Array.isArray(r.pet)) {
-            petStr = r.pet.join(',').toLowerCase();
-        } else {
-            petStr = (r.pet || r.petType || '').toString().toLowerCase();
-        }
-        return petStr.includes(sp) || sp.includes(petStr);
+    const params = _REC_SPECIES_PARAMS[sp] || _REC_SPECIES_PARAMS.dog;
+
+    // ── Pull from loaded PAWFEED_RECIPES dataset (recipes.js) ──────────────
+    const dataset =
+        (window.PAWFEED_RECIPES && window.PAWFEED_RECIPES[sp]) ||
+        (window.PAWFEED_RECIPES && window.PAWFEED_RECIPES.dog) || [];
+
+    // ── Normalize user inputs ───────────────────────────────────────────────
+    const ageF    = parseFloat(age)     || 1;
+    const weightF = parseFloat(weight)  || 1;
+    const calF    = parseFloat(calories)|| 100;
+
+    // Clamp + normalize to [0,1]
+    const userAgeNorm    = Math.min(1, Math.max(0, ageF    / params.maxAge));
+    const userWeightNorm = Math.min(1, Math.max(0, weightF / params.maxWeight));
+    const calPerMeal     = calF / params.mealsPerDay;
+    const userCalNorm    = Math.min(1, Math.max(0, calPerMeal / params.maxCalPerServing));
+
+    // ── Feature weights ─────────────────────────────────────────────────────
+    // Age is most important (baby vs senior diets differ the most).
+    // Calorie match drives portion suitability.
+    // Weight acts as a body-size proxy (bigger pets → higher calorie density).
+    const W_AGE    = 2.0;
+    const W_CAL    = 1.5;
+    const W_WEIGHT = 1.0;
+
+    // ── Score every recipe via weighted Euclidean distance ─────────────────
+    const scored = dataset.map((recipe, rawIdx) => {
+        const recCal        = _parseNutVal(recipe.nutrition?.calories) || 100;
+        const recCalNorm    = Math.min(1, recCal / params.maxCalPerServing);
+        const recAgeNorm    = _recAgeGroupNorm(recipe.ageGroup);
+        // Weight proxy: higher-calorie recipes suit larger/heavier animals
+        const recWeightProxy = recCalNorm;
+
+        const dist = Math.sqrt(
+            W_AGE    * Math.pow(userAgeNorm    - recAgeNorm,    2) +
+            W_CAL    * Math.pow(userCalNorm    - recCalNorm,    2) +
+            W_WEIGHT * Math.pow(userWeightNorm - recWeightProxy, 2)
+        );
+        return { recipe, dist, rawIdx };
     });
 
-    if (suitable && suitable.length >= 5) {
-        const scored = suitable.map(r => {
-            const rCal = parseFloat(r.calories || r.cal || 160);
-            const calDiff = Math.abs(rCal - (targetCal / 4)) / (targetCal / 4 || 1);
-            return { recipe: r, score: calDiff };
+    // Sort ascending (closest first) and take top 5
+    scored.sort((a, b) => a.dist - b.dist);
+    const top5 = scored.slice(0, 5);
+
+    // ── Convert distances → realistic match percentages ────────────────────
+    // Closest recipe → 98%, furthest of top 5 → 85%
+    const minDist = top5[0]?.dist ?? 0;
+    const maxDist = top5[top5.length - 1]?.dist ?? 1;
+    const distRange = maxDist - minDist || 1;
+
+    const ranks = ['🥇', '🥈', '🥉', '4th', '5th'];
+
+    return top5.map((item, idx) => {
+        const r    = item.recipe;
+        const nutr = r.nutrition || {};
+
+        // Scale distance → match%: 0 distance → 98%, maxRange distance → 85%
+        const matchPct = Math.round(98 - ((item.dist - minDist) / distRange) * 13);
+        const safePct  = Math.max(85, Math.min(99, matchPct));
+
+        // Ingredients: split "197g Pork Loin" → qty="197g", name="Pork Loin"
+        const rawIngredients = Array.isArray(r.ingredients) ? r.ingredients : [];
+        const ingredientNames = rawIngredients.map(ing => {
+            const m = String(ing).match(/^(\d+g?)\s+(.+)$/i);
+            return m ? m[2].trim() : ing;
+        });
+        const ingredientQtys = rawIngredients.map(ing => {
+            const m = String(ing).match(/^(\d+g?)\b/i);
+            return m ? m[1] : '';
         });
 
-        scored.sort((a, b) => a.score - b.score);
-        const topScored = scored.slice(0, 5);
-
-        const ranks = ["🥇", "🥈", "🥉", "4th", "5th"];
-        const matches = [98, 96, 95, 93, 91];
-
-        return topScored.map((item, idx) => {
-            const r = item.recipe;
-            return {
-                rank: idx + 1,
-                badge: ranks[idx],
-                id: r.id || `REC_${idx+1}`,
-                recipe_name: r.title || r.recipe_name || 'Healthy Recipe Bowl',
-                match_percent: matches[idx],
-                match: `${matches[idx]}% Match`,
-                calories: r.calories || 160,
-                protein: r.protein ? (String(r.protein).includes('g') ? String(r.protein) : r.protein + 'g') : (12 + idx * 2) + 'g',
-                fat: r.fat ? (String(r.fat).includes('g') ? String(r.fat) : r.fat + 'g') : (5 + idx) + 'g',
-                carbs: r.carbohydrates || r.carbs ? (String(r.carbohydrates || r.carbs).includes('g') ? String(r.carbohydrates || r.carbs) : (r.carbohydrates || r.carbs) + 'g') : (8 + idx * 2) + 'g',
-                cook_time: r.cookTime || r.time || '20 mins',
-                difficulty: r.difficulty || 'Easy',
-                ingredients: Array.isArray(r.ingredients) ? r.ingredients : (r.ingredients ? String(r.ingredients).split(',') : ['Fresh Protein', 'Vegetables']),
-                quantities: Array.isArray(r.ingredient_quantities || r.quantities) ? (r.ingredient_quantities || r.quantities) : ['150g', '100g'],
-                steps: Array.isArray(r.preparation_steps || r.steps) ? (r.preparation_steps || r.steps) : (r.instructions ? [r.instructions] : ['Cook ingredients thoroughly.', 'Mix well and serve.'])
-            };
-        });
-    }
-
-    if (sp.includes('cat')) {
-        return [
-            { rank: 1, badge: "🥇", id: "CAT_1", recipe_name: "Chicken Rice Bowl", match_percent: 98, match: "98% Match", calories: 380, protein: "35g", fat: "14g", carbs: "42g", cook_time: "20 mins", difficulty: "Easy", ingredients: ["Chicken Breast", "White Rice", "Carrots", "Peas"], quantities: ["180g", "140g", "40g", "20g"], steps: ["Boil chicken breast until tender.", "Steam white rice and diced carrots.", "Combine gently and serve warm."] },
-            { rank: 2, badge: "🥈", id: "CAT_2", recipe_name: "Turkey Delight", match_percent: 96, match: "96% Match", calories: 360, protein: "32g", fat: "11g", carbs: "38g", cook_time: "25 mins", difficulty: "Easy", ingredients: ["Turkey Breast", "Sweet Potato", "Green Beans"], quantities: ["170g", "120g", "35g"], steps: ["Cook turkey thoroughly.", "Mash sweet potato and mix with green beans."] },
-            { rank: 3, badge: "🥉", id: "CAT_3", recipe_name: "Lamb Lean Mix", match_percent: 95, match: "95% Match", calories: 390, protein: "30g", fat: "15g", carbs: "36g", cook_time: "25 mins", difficulty: "Medium", ingredients: ["Lamb Lean", "Potato", "Celery"], quantities: ["180g", "110g", "30g"], steps: ["Poach lamb lean until fully cooked.", "Dice potato and celery, then mix."] },
-            { rank: 4, badge: "4th", id: "CAT_4", recipe_name: "Salmon & Pumpkin Puree", match_percent: 93, match: "93% Match", calories: 340, protein: "29g", fat: "12g", carbs: "30g", cook_time: "15 mins", difficulty: "Easy", ingredients: ["Salmon Fillet", "Pumpkin Puree"], quantities: ["160g", "90g"], steps: ["Pan-sear salmon.", "Mix gently with pumpkin puree."] },
-            { rank: 5, badge: "5th", id: "CAT_5", recipe_name: "Beef & Vegetable Stew", match_percent: 91, match: "91% Match", calories: 370, protein: "31g", fat: "13g", carbs: "33g", cook_time: "30 mins", difficulty: "Medium", ingredients: ["Lean Beef", "Carrots", "Zucchini"], quantities: ["175g", "50g", "50g"], steps: ["Simmer lean beef and vegetables in plain water until tender."] }
-        ];
-    } else if (sp.includes('bird')) {
-        return [
-            { rank: 1, badge: "🥇", id: "BIRD_1", recipe_name: "Seed & Veggie Mash", match_percent: 98, match: "98% Match", calories: 180, protein: "18g", fat: "8g", carbs: "45g", cook_time: "10 mins", difficulty: "Easy", ingredients: ["Mixed Seeds", "Chopped Spinach", "Grated Carrots"], quantities: ["50g", "30g", "20g"], steps: ["Mix seeds with fresh chopped greens and serve."] },
-            { rank: 2, badge: "🥈", id: "BIRD_2", recipe_name: "Oat & Fruit Chop", match_percent: 96, match: "96% Match", calories: 170, protein: "16g", fat: "6g", carbs: "48g", cook_time: "10 mins", difficulty: "Easy", ingredients: ["Rolled Oats", "Diced Apple", "Blueberries"], quantities: ["40g", "30g", "15g"], steps: ["Chop fruits finely and toss with oats."] },
-            { rank: 3, badge: "🥉", id: "BIRD_3", recipe_name: "Nutty Grain Blend", match_percent: 95, match: "95% Match", calories: 190, protein: "19g", fat: "9g", carbs: "42g", cook_time: "15 mins", difficulty: "Easy", ingredients: ["Quinoa", "Walnut Crumbles", "Peas"], quantities: ["45g", "15g", "20g"], steps: ["Cook quinoa, cool down, and fold in walnut crumbles."] },
-            { rank: 4, badge: "4th", id: "BIRD_4", recipe_name: "Sweet Corn & Millet Bowl", match_percent: 93, match: "93% Match", calories: 165, protein: "15g", fat: "5g", carbs: "46g", cook_time: "10 mins", difficulty: "Easy", ingredients: ["Millet", "Sweet Corn Kernels"], quantities: ["50g", "30g"], steps: ["Steam corn gently and serve with millet."] },
-            { rank: 5, badge: "5th", id: "BIRD_5", recipe_name: "Sprout & Herb Feast", match_percent: 91, match: "91% Match", calories: 160, protein: "17g", fat: "4g", carbs: "44g", cook_time: "5 mins", difficulty: "Easy", ingredients: ["Mung Bean Sprouts", "Parsley", "Chia Seeds"], quantities: ["40g", "10g", "10g"], steps: ["Rinse sprouts, chop parsley, and sprinkle chia seeds."] }
-        ];
-    } else if (sp.includes('rabbit')) {
-        return [
-            { rank: 1, badge: "🥇", id: "RAB_1", recipe_name: "Timothy Hay & Carrot Crunch", match_percent: 98, match: "98% Match", calories: 140, protein: "14g", fat: "3g", carbs: "52g", cook_time: "5 mins", difficulty: "Easy", ingredients: ["Timothy Hay", "Carrot Tops", "Romaine Lettuce"], quantities: ["100g", "30g", "40g"], steps: ["Freshly mix timothy hay with clean leafy greens."] },
-            { rank: 2, badge: "🥈", id: "RAB_2", recipe_name: "Herb & Kale Salad", match_percent: 96, match: "96% Match", calories: 130, protein: "15g", fat: "2.5g", carbs: "50g", cook_time: "5 mins", difficulty: "Easy", ingredients: ["Fresh Kale", "Basil", "Cilantro"], quantities: ["50g", "15g", "15g"], steps: ["Wash greens thoroughly and chop lightly."] },
-            { rank: 3, badge: "🥉", id: "RAB_3", recipe_name: "Pumpkin & Pellet Medley", match_percent: 95, match: "95% Match", calories: 150, protein: "13g", fat: "4g", carbs: "54g", cook_time: "10 mins", difficulty: "Easy", ingredients: ["Alfalfa Pellets", "Diced Pumpkin", "Oat Hay"], quantities: ["40g", "30g", "60g"], steps: ["Combine pellets with fresh pumpkin pieces."] },
-            { rank: 4, badge: "4th", id: "RAB_4", recipe_name: "Apple Slice Treat Bowl", match_percent: 93, match: "93% Match", calories: 125, protein: "11g", fat: "2g", carbs: "48g", cook_time: "5 mins", difficulty: "Easy", ingredients: ["Thin Apple Slices", "Meadow Hay"], quantities: ["20g", "100g"], steps: ["Slice apple thinly without seeds and serve over hay."] },
-            { rank: 5, badge: "5th", id: "RAB_5", recipe_name: "Berry & Dandelion Plate", match_percent: 91, match: "91% Match", calories: 120, protein: "12g", fat: "2g", carbs: "46g", cook_time: "5 mins", difficulty: "Easy", ingredients: ["Dandelion Greens", "Fresh Strawberry"], quantities: ["60g", "15g"], steps: ["Clean greens and top with a small strawberry slice."] }
-        ];
-    } else if (sp.includes('hamster')) {
-        return [
-            { rank: 1, badge: "🥇", id: "HAM_1", recipe_name: "Sunflower & Oat Cluster", match_percent: 98, match: "98% Match", calories: 95, protein: "16g", fat: "9g", carbs: "40g", cook_time: "5 mins", difficulty: "Easy", ingredients: ["Sunflower Seeds", "Rolled Oats", "Dried Peas"], quantities: ["15g", "20g", "10g"], steps: ["Mix seeds and oats in feeding dish."] },
-            { rank: 2, badge: "🥈", id: "HAM_2", recipe_name: "Broccoli & Egg Bite", match_percent: 96, match: "96% Match", calories: 90, protein: "18g", fat: "5g", carbs: "35g", cook_time: "10 mins", difficulty: "Easy", ingredients: ["Boiled Egg White", "Steamed Broccoli"], quantities: ["10g", "15g"], steps: ["Dice egg white and broccoli into small pieces."] },
-            { rank: 3, badge: "🥉", id: "HAM_3", recipe_name: "Flax & Barley Nibbles", match_percent: 95, match: "95% Match", calories: 100, protein: "15g", fat: "8g", carbs: "42g", cook_time: "5 mins", difficulty: "Easy", ingredients: ["Flaxseed", "Barley Flakes", "Carrot Cubes"], quantities: ["5g", "20g", "10g"], steps: ["Toss seeds, barley, and carrot cubes."] },
-            { rank: 4, badge: "4th", id: "HAM_4", recipe_name: "Mealworm & Grain Bowl", match_percent: 93, match: "93% Match", calories: 110, protein: "20g", fat: "10g", carbs: "38g", cook_time: "5 mins", difficulty: "Easy", ingredients: ["Dried Mealworms", "Millet Seeds"], quantities: ["5g", "20g"], steps: ["Combine mealworms and millet."] },
-            { rank: 5, badge: "5th", id: "HAM_5", recipe_name: "Cucumber & Rice Delight", match_percent: 91, match: "91% Match", calories: 85, protein: "12g", fat: "3g", carbs: "36g", cook_time: "5 mins", difficulty: "Easy", ingredients: ["Cucumber Slice", "Cooked Rice"], quantities: ["10g", "15g"], steps: ["Dice cucumber and mix with plain rice."] }
-        ];
-    } else {
-        // Default Dog
-        return [
-            { rank: 1, badge: "🥇", id: "DOG_1", recipe_name: "Chicken Rice Bowl", match_percent: 98, match: "98% Match", calories: 420, protein: "35g", fat: "14g", carbs: "42g", cook_time: "20 mins", difficulty: "Easy", ingredients: ["Chicken Breast", "White Rice", "Carrots", "Peas"], quantities: ["200g", "150g", "50g", "30g"], steps: ["Boil chicken breast until tender.", "Steam white rice and diced carrots.", "Combine gently and let cool before serving."] },
-            { rank: 2, badge: "🥈", id: "DOG_2", recipe_name: "Turkey Delight", match_percent: 96, match: "96% Match", calories: 380, protein: "32g", fat: "11g", carbs: "38g", cook_time: "25 mins", difficulty: "Easy", ingredients: ["Turkey Breast", "Sweet Potato", "Green Beans"], quantities: ["180g", "140g", "40g"], steps: ["Cook turkey breast thoroughly.", "Steam sweet potato and green beans.", "Mix together."] },
-            { rank: 3, badge: "🥉", id: "DOG_3", recipe_name: "Lamb Lean Mix", match_percent: 95, match: "95% Match", calories: 410, protein: "30g", fat: "15g", carbs: "36g", cook_time: "25 mins", difficulty: "Medium", ingredients: ["Lamb Lean", "Potato", "Celery"], quantities: ["190g", "130g", "45g"], steps: ["Poach lamb lean until fully cooked.", "Dice potato and celery, then mix."] },
-            { rank: 4, badge: "4th", id: "DOG_4", recipe_name: "Pork & Pumpkin Mash", match_percent: 93, match: "93% Match", calories: 360, protein: "28g", fat: "10g", carbs: "34g", cook_time: "20 mins", difficulty: "Easy", ingredients: ["Pork Loin", "Pumpkin Puree", "Oats"], quantities: ["170g", "110g", "35g"], steps: ["Cook pork loin thoroughly.", "Mash pumpkin and oats together.", "Mix with cooked pork."] },
-            { rank: 5, badge: "5th", id: "DOG_5", recipe_name: "Salmon & Veggie Bowl", match_percent: 91, match: "91% Match", calories: 390, protein: "29g", fat: "12g", carbs: "35g", cook_time: "15 mins", difficulty: "Easy", ingredients: ["Salmon Fillet", "Zucchini", "Brown Rice"], quantities: ["160g", "90g", "120g"], steps: ["Pan-sear salmon fillet.", "Steam zucchini slices.", "Serve alongside cooked brown rice."] }
-        ];
-    }
+        return {
+            rank:         idx + 1,
+            badge:        ranks[idx],
+            id:           r.id || `${sp.toUpperCase()}_${item.rawIdx}`,
+            recipe_name:  r.name || 'Healthy Recipe',
+            match_percent: safePct,
+            match:        `${safePct}% Match`,
+            calories:     _parseNutVal(nutr.calories),
+            protein:      nutr.protein  ? String(nutr.protein).replace(' g','g')  : '0g',
+            fat:          nutr.fat      ? String(nutr.fat).replace(' g','g')      : '0g',
+            carbs:        nutr.fiber    ? String(nutr.fiber).replace(' g','g')    : '0g',
+            cook_time:    r.cookTime || r.cook_time || '20 mins',
+            difficulty:   r.difficulty || 'Easy',
+            benefits:     Array.isArray(r.benefits) ? r.benefits : [],
+            conditions:   [],
+            ingredients:  ingredientNames,
+            quantities:   ingredientQtys,
+            steps:        Array.isArray(r.steps) ? r.steps : ['Prepare and serve fresh.']
+        };
+    });
 }
+
 
 window.fetchSmartRecommendations = async function() {
     const name = (document.getElementById('recPetName')?.value || 'Bruno').trim();

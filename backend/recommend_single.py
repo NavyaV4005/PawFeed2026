@@ -22,6 +22,15 @@ def recommend_single(species, name, age, weight, calories):
         scaler_path = os.path.join(MODELS_DIR, "dog_scaler.pkl")
         csv_path = os.path.join(MODELS_DIR, "dog_recipes.csv")
 
+    # If still missing, return clean error JSON so Node.js can handle it
+    if not (os.path.exists(model_path) and os.path.exists(scaler_path) and os.path.exists(csv_path)):
+        print(json.dumps({
+            "status": "error",
+            "error": "Model files not found. Using client-side fallback.",
+            "recommendations": []
+        }))
+        sys.exit(0)
+
     model = joblib.load(model_path)
     scaler = joblib.load(scaler_path)
     df = pd.read_csv(csv_path)
