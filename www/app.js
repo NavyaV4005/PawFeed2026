@@ -424,7 +424,29 @@ const USE_SUPABASE_ONLY = true;
         ]);
 
         // Extract profile and household_id from parallel result
-        const profileData = profileRes?.data;
+        let profileData = profileRes?.data;
+        if (!profileData) {
+          console.log('[PawFeed Auth] Profile not found, creating a default profile...');
+          const newProfile = {
+            id: userId,
+            household_id: userId,
+            settings: {},
+            daily_checklist: {}
+          };
+          const { data: inserted, error: insertErr } = await window.supabaseClient
+            .from('user_profiles')
+            .upsert(newProfile)
+            .select('*')
+            .maybeSingle();
+            
+          if (!insertErr && inserted) {
+            profileData = inserted;
+          } else {
+            console.warn('[PawFeed Auth] Default profile creation failed:', insertErr);
+            profileData = newProfile;
+          }
+        }
+
         if (profileData) {
           if (profileData.household_id) currentHouseholdId = profileData.household_id;
           else currentHouseholdId = userId;
@@ -1228,13 +1250,23 @@ const USE_SUPABASE_ONLY = true;
       // Instantly dismiss splash screen & show loading screen during sync
       const splash = document.getElementById("animeSplash");
       if (splash) splash.style.display = "none";
-      showLoadingScreen("Syncing your pet profile and care logs... ☁️");
+      
+      const isOAuth = localStorage.getItem('pawfeed_oauth_in_progress') === 'true' ||
+                      window.location.search.includes('code=') ||
+                      window.location.hash.includes('access_token=');
+                      
+      showLoadingScreen(isOAuth ? "Signing you in... 🐾" : "Syncing your pet profile and care logs... ☁️");
 
       try {
         currentUser = session.user;
         localStorage.setItem('pawfeedCurrentUser', JSON.stringify(currentUser));
         if (window.initPushNotifications) window.initPushNotifications(currentUser.id);
+        
         await fetchAllDataFromSupabase();
+        
+        // Clear OAuth redirect progress flag on success
+        localStorage.removeItem('pawfeed_oauth_in_progress');
+        
         loadApp();
         if (s && s.reminders) startAllReminders();
         refreshAllUI();
@@ -1244,6 +1276,7 @@ const USE_SUPABASE_ONLY = true;
         _appLoaded = true;
       } catch (e) {
         console.error('[PawFeed] Error loading app after auth:', e);
+        localStorage.removeItem('pawfeed_oauth_in_progress');
         showToast("Error logging in. Please check your network. ❌");
       } finally {
         _appLoadInProgress = false;
@@ -1253,8 +1286,20 @@ const USE_SUPABASE_ONLY = true;
 
 
     async function initApp() {
+      // 1. Instantly check if we are undergoing a Google Sign-In redirect to bypass splash screen & show "Signing you in..."
+      const isOAuthRedirect = window.location.search.includes('code=') || 
+                              window.location.hash.includes('access_token=') ||
+                              localStorage.getItem('pawfeed_oauth_in_progress') === 'true';
+                              
+      if (isOAuthRedirect) {
+        const splash = document.getElementById("animeSplash");
+        if (splash) splash.style.display = "none";
+        showLoadingScreen("Signing you in... 🐾");
+      }
+
       loadLocalCache();
       await loadReferenceDatasets();
+      
       // Apply dark mode
       const s = getSettings();
       if (s.darkMode) {
@@ -1265,58 +1310,87 @@ const USE_SUPABASE_ONLY = true;
       if (s.reminders) document.getElementById('reminderToggle').classList.add('on');
 
       if (window.supabaseClient) {
-        // onAuthStateChange handles OAuth redirects (SIGNED_IN fires after Google redirect)
+        // 2. Query session FIRST synchronously (handles redirect completion, reload, and restoration)
+        let initialSession = null;
+        try {
+          const { data: { session } } = await window.supabaseClient.auth.getSession();
+          initialSession = session;
+          if (session && !_appLoaded && !_appLoadInProgress) {
+            await _loadAuthenticatedApp(session, s);
+          }
+        } catch (e) {
+          console.error('Failed to restore Supabase session on init:', e);
+        }
+
+        // 3. Fallback to cached local user only if no active Supabase session was found
+        if (!initialSession) {
+          const storedLocalUser = localStorage.getItem('pawfeedCurrentUser');
+          if (storedLocalUser) {
+            try {
+              currentUser = JSON.parse(storedLocalUser);
+              await _loadAuthenticatedApp({ user: currentUser }, s);
+            } catch (e) {
+              console.error('Failed to parse local user:', e);
+              showScreen('loginScreen');
+              hideLoadingScreen();
+            }
+          } else {
+            showScreen('loginScreen');
+            hideLoadingScreen();
+            // Ensure splash screen is hidden
+            const splash = document.getElementById("animeSplash");
+            if (splash) splash.style.display = "none";
+          }
+        }
+
+        // 4. Attach auth listener ONLY for subsequent changes (avoiding boot concurrency)
         window.supabaseClient.auth.onAuthStateChange(async (event, session) => {
           console.log(`[PawFeed Auth State Change] Event: ${event}`);
+          
           if (event === 'SIGNED_IN' && session) {
-            await _loadAuthenticatedApp(session, s);
+            if (!_appLoaded && !_appLoadInProgress) {
+              await _loadAuthenticatedApp(session, s);
+            }
           } else if (event === 'PASSWORD_RECOVERY' && session) {
             console.log('[PawFeed Auth] PASSWORD_RECOVERY detected — showing update password modal.');
             const modal = document.getElementById('updatePasswordModal');
             if (modal) modal.classList.remove('hidden');
           } else if (event === 'SIGNED_OUT') {
             _appLoaded = false;
+            _appLoadInProgress = false;
             currentUser = null;
             localStorage.removeItem('pawfeedCurrentUser');
+            localStorage.removeItem('pawfeed_oauth_in_progress');
+            
+            // Reset lazy load status
+            for (const key in _loadedFeatures) {
+              _loadedFeatures[key] = false;
+            }
+            _loadedFeatures.home = true;
+            
             showScreen('loginScreen');
+            hideLoadingScreen();
           }
         });
-
-        // getSession() handles existing sessions (page refresh, tab restore)
-        // Skip if onAuthStateChange already triggered a load
-        try {
-          const { data: { session } } = await window.supabaseClient.auth.getSession();
-          if (session && !_appLoaded && !_appLoadInProgress) {
-            await _loadAuthenticatedApp(session, s);
-            return;
-          } else if (session) {
-            // onAuthStateChange already handling it — just wait
-            return;
-          }
-        } catch (e) {
-          console.error('Failed to restore Supabase session:', e);
-        }
-      }
-
-      const storedLocalUser = localStorage.getItem('pawfeedCurrentUser');
-      if (storedLocalUser) {
-        try {
-          currentUser = JSON.parse(storedLocalUser);
-          if (window.supabaseClient) {
-            await _loadAuthenticatedApp({ user: currentUser }, s);
-          } else {
+      } else {
+        // Offline / Development Offline fallback
+        const storedLocalUser = localStorage.getItem('pawfeedCurrentUser');
+        if (storedLocalUser) {
+          try {
+            currentUser = JSON.parse(storedLocalUser);
             loadApp();
             if (s.reminders) startAllReminders();
             refreshAllUI();
             initCalendar();
+          } catch (e) {
+            console.error('Failed to parse local auth:', e);
+            showScreen('loginScreen');
           }
-          return;
-        } catch (e) {
-          console.error('Failed to parse local auth:', e);
+        } else {
+          showScreen('loginScreen');
         }
+        hideLoadingScreen();
       }
-
-      showScreen('loginScreen');
     }
 
     // --- REALTIME SUBSCRIPTIONS ---

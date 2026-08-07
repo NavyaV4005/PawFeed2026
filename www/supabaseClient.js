@@ -40,24 +40,14 @@ const supabaseClient = window.supabase
 window.supabaseClient = supabaseClient;
 
 // ==================== AUTH STATE CHANGE ====================
-// Listen for PASSWORD_RECOVERY events (deep-link redirect after "Reset Password" email)
-if (supabaseClient) {
-  supabaseClient.auth.onAuthStateChange((event, session) => {
-    if (event === 'PASSWORD_RECOVERY') {
-      console.log('[PawFeed Auth] PASSWORD_RECOVERY detected — showing update password modal.');
-      const modal = document.getElementById('updatePasswordModal');
-      if (modal) modal.classList.remove('hidden');
-    }
-    if (event === 'SIGNED_IN' && session) {
-      console.log('[PawFeed Auth] SIGNED_IN via OAuth redirect.');
-      // The main app will pick this up if it polls auth state.
-    }
-  });
-}
+// Auth state changes are managed in app.js. No duplicate listeners here.
 
 // ==================== GOOGLE AUTH (Web & Mobile) ====================
 async function signInWithGoogle() {
   if (!supabaseClient) throw new Error('[PawFeed] Supabase client not initialised.');
+
+  // Set flag to bypass splash screen and show "Signing you in..." loader on redirect reload
+  localStorage.setItem('pawfeed_oauth_in_progress', 'true');
 
   // Capacitor Native (Mobile App)
   if (window.Capacitor && window.Capacitor.isNativePlatform()) {
@@ -76,6 +66,7 @@ async function signInWithGoogle() {
       if (error) throw error;
       return data;
     } catch (err) {
+      localStorage.removeItem('pawfeed_oauth_in_progress');
       console.error("Google native sign-in error:", err);
       alert("Native Auth Error: " + (err.message || JSON.stringify(err)));
       throw err;
@@ -88,7 +79,10 @@ async function signInWithGoogle() {
         redirectTo: window.location.origin + window.location.pathname
       }
     });
-    if (error) throw error;
+    if (error) {
+      localStorage.removeItem('pawfeed_oauth_in_progress');
+      throw error;
+    }
     return data;
   }
 }
