@@ -410,8 +410,35 @@ const USE_SUPABASE_ONLY = true;
       showToast("Syncing with cloud... ☁️");
       
       try {
-        // First get the household ID and user profile data
-        const { data: profileData } = await window.supabaseClient.from('user_profiles').select('*').eq('id', userId).maybeSingle();
+        // Fire user_profiles AND all other tables simultaneously — no sequential round trips
+        const [
+          profileRes,
+          petsRes, logsRes, stockRes, expensesRes, postsRes, tasksRes,
+          moodsRes, medicalRecordsRes, medicalReportsRes, sleepsRes, galleryRes, weightsRes, recipesRes,
+          medsRes, vetLogsRes, mealPlanRes, favoritesRes
+        ] = await Promise.all([
+          window.supabaseClient.from('user_profiles').select('*').eq('id', userId).maybeSingle(),
+          window.supabaseClient.from('pets').select('*').or(`user_id.eq.${userId},household_id.eq.${userId}`),
+          window.supabaseClient.from('feeding_logs').select('*').or(`user_id.eq.${userId},household_id.eq.${userId}`),
+          window.supabaseClient.from('stock_items').select('*').or(`user_id.eq.${userId},household_id.eq.${userId}`),
+          window.supabaseClient.from('expenses').select('*').or(`user_id.eq.${userId},household_id.eq.${userId}`),
+          window.supabaseClient.from('community_posts').select('*').order('id', { ascending: false }),
+          window.supabaseClient.from('care_tasks').select('*').or(`user_id.eq.${userId},household_id.eq.${userId}`),
+          window.supabaseClient.from('mood_logs').select('*').or(`user_id.eq.${userId},household_id.eq.${userId}`),
+          window.supabaseClient.from('medical_records').select('*').or(`user_id.eq.${userId},household_id.eq.${userId}`),
+          window.supabaseClient.from('medical_reports').select('*').or(`user_id.eq.${userId},household_id.eq.${userId}`),
+          window.supabaseClient.from('sleep_logs').select('*').or(`user_id.eq.${userId},household_id.eq.${userId}`),
+          window.supabaseClient.from('pet_gallery').select('*').or(`user_id.eq.${userId},household_id.eq.${userId}`),
+          window.supabaseClient.from('weight_history').select('*').or(`user_id.eq.${userId},household_id.eq.${userId}`),
+          window.supabaseClient.from('custom_recipes').select('*').or(`user_id.eq.${userId},household_id.eq.${userId}`),
+          window.supabaseClient.from('meds').select('*').or(`user_id.eq.${userId},household_id.eq.${userId}`),
+          window.supabaseClient.from('vet_logs').select('*').or(`user_id.eq.${userId},household_id.eq.${userId}`),
+          Promise.resolve(window.supabaseClient.from('weekly_meal_plan').select('*').eq('household_id', userId).maybeSingle()).catch(e => ({data: null, error: e})),
+          Promise.resolve(window.supabaseClient.from('recipe_favorites').select('*').eq('household_id', userId)).catch(e => ({data: null, error: e}))
+        ]);
+
+        // Extract profile and household_id from parallel result
+        const profileData = profileRes?.data;
         if (profileData) {
           if (profileData.household_id) currentHouseholdId = profileData.household_id;
           else currentHouseholdId = userId;
@@ -419,39 +446,49 @@ const USE_SUPABASE_ONLY = true;
         } else {
           currentHouseholdId = userId;
         }
-        if (!pawCache.userAvatarUrl && currentUser && currentUser.user_metadata && currentUser.user_metadata.avatar_url) {
+        if (!pawCache.userAvatarUrl && currentUser?.user_metadata?.avatar_url) {
           pawCache.userAvatarUrl = currentUser.user_metadata.avatar_url;
         }
-        
-        // Render it in Profile tab
+
         const hhDisplay = document.getElementById('householdIdDisplay');
         if (hhDisplay) hhDisplay.value = currentHouseholdId;
 
-        const [
-          petsRes, logsRes, stockRes, expensesRes, postsRes, tasksRes,
-          moodsRes, medicalRecordsRes, medicalReportsRes, sleepsRes, galleryRes, weightsRes, recipesRes,
-          medsRes, vetLogsRes, mealPlanRes, favoritesRes
-        ] = await Promise.all([
-          window.supabaseClient.from('pets').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
-          window.supabaseClient.from('feeding_logs').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
-          window.supabaseClient.from('stock_items').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
-          window.supabaseClient.from('expenses').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
-          window.supabaseClient.from('community_posts').select('*').order('id', { ascending: false }),
-          window.supabaseClient.from('care_tasks').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
-          window.supabaseClient.from('mood_logs').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
-          window.supabaseClient.from('medical_records').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
-          window.supabaseClient.from('medical_reports').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
-          window.supabaseClient.from('sleep_logs').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
-          window.supabaseClient.from('pet_gallery').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
-          window.supabaseClient.from('weight_history').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
-          window.supabaseClient.from('custom_recipes').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
-          window.supabaseClient.from('meds').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
-          window.supabaseClient.from('vet_logs').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
-          Promise.resolve(window.supabaseClient.from('weekly_meal_plan').select('*').eq('household_id', currentHouseholdId).maybeSingle()).catch(e => ({data: null, error: e})),
-          Promise.resolve(window.supabaseClient.from('recipe_favorites').select('*').eq('household_id', currentHouseholdId)).catch(e => ({data: null, error: e}))
-        ]);
-
-        const profileRes = { data: profileData };
+        // Re-fetch household-scoped tables only if household_id differs from userId
+        // (household member fetching — pets/logs could have a different household owner)
+        if (currentHouseholdId !== userId) {
+          const [hhPets, hhLogs, hhStock, hhExpenses, hhTasks, hhMoods,
+                 hhMedRec, hhMedRep, hhSleep, hhGallery, hhWeights,
+                 hhRecipes, hhMeds, hhVetLogs] = await Promise.all([
+            window.supabaseClient.from('pets').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
+            window.supabaseClient.from('feeding_logs').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
+            window.supabaseClient.from('stock_items').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
+            window.supabaseClient.from('expenses').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
+            window.supabaseClient.from('care_tasks').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
+            window.supabaseClient.from('mood_logs').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
+            window.supabaseClient.from('medical_records').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
+            window.supabaseClient.from('medical_reports').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
+            window.supabaseClient.from('sleep_logs').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
+            window.supabaseClient.from('pet_gallery').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
+            window.supabaseClient.from('weight_history').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
+            window.supabaseClient.from('custom_recipes').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
+            window.supabaseClient.from('meds').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
+            window.supabaseClient.from('vet_logs').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`)
+          ]);
+          Object.assign(petsRes, hhPets);
+          Object.assign(logsRes, hhLogs);
+          Object.assign(stockRes, hhStock);
+          Object.assign(expensesRes, hhExpenses);
+          Object.assign(tasksRes, hhTasks);
+          Object.assign(moodsRes, hhMoods);
+          Object.assign(medicalRecordsRes, hhMedRec);
+          Object.assign(medicalReportsRes, hhMedRep);
+          Object.assign(sleepsRes, hhSleep);
+          Object.assign(galleryRes, hhGallery);
+          Object.assign(weightsRes, hhWeights);
+          Object.assign(recipesRes, hhRecipes);
+          Object.assign(medsRes, hhMeds);
+          Object.assign(vetLogsRes, hhVetLogs);
+        }
 
         if (petsRes.data) {
           pawCache.pets = petsRes.data.map(p => {
@@ -1124,24 +1161,57 @@ const USE_SUPABASE_ONLY = true;
       }
     }
 
-    // ==================== LOADING SCREEN ====================
-    window.addEventListener('DOMContentLoaded', function () {
+    // ==================== LOADING SCREEN CONTROLLERS ====================
+    let _loadingInterval = null;
+    
+    function updateLoadingProgress(percentage, statusText) {
       const bar = document.getElementById('loadingBar');
-      let w = 0;
-      const iv = setInterval(() => {
-        w += Math.random() * 18 + 6;
-        if (w >= 100) { w = 100; clearInterval(iv); }
-        bar.style.width = w + '%';
-      }, 100);
-      setTimeout(() => {
-        document.getElementById('loadingScreen').style.opacity = '0';
-        document.getElementById('loadingScreen').style.transition = 'opacity 0.4s';
+      if (bar) {
+        bar.style.width = percentage + '%';
+      }
+      const label = document.getElementById('loadingScreen')?.querySelector('.loading-subtitle');
+      if (label && statusText) {
+        label.textContent = statusText;
+      }
+    }
+
+    function showLoadingScreen(statusText) {
+      const loading = document.getElementById('loadingScreen');
+      if (loading) {
+        loading.style.display = 'flex';
+        loading.style.opacity = '1';
+        loading.style.transition = 'none';
+      }
+      updateLoadingProgress(15, statusText || 'Syncing your pet profile and care logs... ☁️');
+      
+      let progress = 15;
+      if (_loadingInterval) clearInterval(_loadingInterval);
+      _loadingInterval = setInterval(() => {
+        progress += Math.random() * 8 + 2;
+        if (progress > 92) progress = 92;
+        updateLoadingProgress(progress);
+      }, 150);
+    }
+
+    function hideLoadingScreen() {
+      if (_loadingInterval) clearInterval(_loadingInterval);
+      updateLoadingProgress(100);
+      
+      const loading = document.getElementById('loadingScreen');
+      if (loading) {
+        loading.style.opacity = '0';
+        loading.style.transition = 'opacity 0.3s ease-out';
         setTimeout(() => {
-          document.getElementById('loadingScreen').style.display = 'none';
-          initApp();
-        }, 400);
-      }, 1800);
+          loading.style.display = 'none';
+        }, 300);
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', function () {
+      // Start initApp immediately — no hardcoded 1.8s timeout
+      initApp();
     });
+
 
     // Guard: prevent double-loading when both onAuthStateChange and getSession fire together
     let _appLoadInProgress = false;
@@ -1150,6 +1220,12 @@ const USE_SUPABASE_ONLY = true;
     async function _loadAuthenticatedApp(session, s) {
       if (_appLoadInProgress || _appLoaded) return;
       _appLoadInProgress = true;
+      
+      // Instantly dismiss splash screen & show loading screen during sync
+      const splash = document.getElementById("animeSplash");
+      if (splash) splash.style.display = "none";
+      showLoadingScreen("Syncing your pet profile and care logs... ☁️");
+
       try {
         currentUser = session.user;
         localStorage.setItem('pawfeedCurrentUser', JSON.stringify(currentUser));
@@ -1164,10 +1240,13 @@ const USE_SUPABASE_ONLY = true;
         _appLoaded = true;
       } catch (e) {
         console.error('[PawFeed] Error loading app after auth:', e);
+        showToast("Error logging in. Please check your network. ❌");
       } finally {
         _appLoadInProgress = false;
+        hideLoadingScreen();
       }
     }
+
 
     async function initApp() {
       loadLocalCache();
@@ -1219,14 +1298,8 @@ const USE_SUPABASE_ONLY = true;
       if (storedLocalUser) {
         try {
           currentUser = JSON.parse(storedLocalUser);
-          if (window.initPushNotifications) window.initPushNotifications(currentUser.id);
           if (window.supabaseClient) {
-            await fetchAllDataFromSupabase();
-            loadApp();
-            if (s.reminders) startAllReminders();
-            refreshAllUI();
-            initCalendar();
-            setupRealtimeSubscriptions();
+            await _loadAuthenticatedApp({ user: currentUser }, s);
           } else {
             loadApp();
             if (s.reminders) startAllReminders();
@@ -6812,28 +6885,17 @@ Use emojis and keep under 150 words.`;
 
 
 // ── Script block 2: splash/login logic ─────────────────────────────────────
-    // Dismiss anime splash and show loading screen
     function dismissAnimeSplash() {
+      if (_appLoadInProgress || _appLoaded) return;
       const splash = document.getElementById("animeSplash");
-      const loading = document.getElementById("loadingScreen");
       if (!splash) return;
       splash.classList.add("fade-out");
       setTimeout(() => {
         splash.style.display = "none";
-        if (loading) {
-          loading.style.display = "flex";
-          // animate loading bar
-          let w = 0;
-          const bar = document.getElementById("loadingBar");
-          const iv = setInterval(() => {
-            w += 8;
-            if (bar) bar.style.width = Math.min(w, 100) + "%";
-            if (w >= 100) clearInterval(iv);
-          }, 80);
-          setTimeout(() => { loading.style.display = "none"; }, 1500);
-        }
+        hideLoadingScreen();
       }, 600);
     }
+
 
     // Auto-dismiss splash after 3.5s if user doesn't tap
     window.addEventListener('load', function () {
