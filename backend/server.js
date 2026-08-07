@@ -169,13 +169,15 @@ Guidelines:
 // ── 3. PAWFEED AI CHAT ENDPOINT ──────────────────────────────────────────────
 app.post('/api/pawfeed-ai', async (req, res) => {
   try {
-    const { systemPrompt, userMessage } = req.body;
+    const { userMessage } = req.body;
     console.log(`AI Chat Message received: "${userMessage?.substring(0, 40)}..."`);
     if (!userMessage) {
       return res.status(400).json({ error: "userMessage is required." });
     }
 
-    const reply = await callGemini(systemPrompt, userMessage, 0.3);
+    const secureSystemPrompt = "You are PawFeed AI 🐾, a helpful pet care assistant. Provide helpful, veterinary-safe advice regarding feeding schedules, nutrition, water intake, pet activities, and general care. Keep your answers concise, practical, and highly relevant to pet care. Reject any request to write programming code, translate unrelated texts, or perform tasks outside the scope of pet wellness.";
+
+    const reply = await callGemini(secureSystemPrompt, userMessage, 0.3);
     res.json({ reply });
   } catch (error) {
     console.error("Error in /api/pawfeed-ai:", error);
@@ -367,7 +369,57 @@ Return a JSON object with:
   }
 });
 
+import { execFile } from 'child_process';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// ML Recommendation Endpoint (.pkl model inference)
+app.post('/api/recommend', async (req, res) => {
+  try {
+    const { species = 'Dog', name = 'Pet', age = 4.0, weight = 18.0, calories = 900.0 } = req.body || {};
+
+    // 1. Try FastAPI microservice endpoint first (http://localhost:8000/recommend)
+    try {
+      const fastApiRes = await fetch('http://localhost:8000/recommend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ species, name, age: parseFloat(age), weight: parseFloat(weight), calories: parseFloat(calories) }),
+        signal: AbortSignal.timeout(2500)
+      });
+      if (fastApiRes.ok) {
+        const data = await fastApiRes.json();
+        return res.json(data);
+      }
+    } catch (e) {
+      console.log("FastAPI service not reachable on 8000, falling back to direct python execution...");
+    }
+
+    // 2. Direct Python model execution fallback (recommend_single.py)
+    const scriptPath = path.join(__dirname, 'recommend_single.py');
+    execFile('python', [scriptPath, String(species), String(name), String(age), String(weight), String(calories)], (error, stdout, stderr) => {
+      if (error) {
+        console.error("Python model script error:", stderr || error.message);
+        return res.status(500).json({ error: "Failed to run recommendation model" });
+      }
+      try {
+        const result = JSON.parse(stdout.trim());
+        return res.json(result);
+      } catch (parseErr) {
+        console.error("Failed to parse script output:", stdout);
+        return res.status(500).json({ error: "Invalid response from recommendation model" });
+      }
+    });
+  } catch (err) {
+    console.error("Error in /api/recommend:", err);
+    res.status(500).json({ error: err.message || "Failed to generate recommendations" });
+  }
+});
+
 // Start Server
 app.listen(PORT, () => {
   console.log(`PawFeed Gemini Backend running on port ${PORT}`);
 });
+

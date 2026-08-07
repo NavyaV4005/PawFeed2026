@@ -1,17 +1,37 @@
 <!DOCTYPE html>
-<!-- index.html — PawFeed markup only. CSS → styles.css, JS → app.js. No logic changes. -->
+<!-- index.html — PawFeed markup only. CSS → styles.css, JS → app.js. -->
 <html lang="en">
 
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="description"
-    content="PawFeed — AI-powered pet care app for feeding schedules, health tracking, and more." />
+    content="PawFeed — AI-powered pet care for feeding schedules, nutrition, health tracking, and more. Smart care for every pet." />
+  <meta name="theme-color" content="#FF7A00" />
   <title>PawFeed — AI Pet Care App</title>
 
-  <!-- Google Fonts: Nunito + Poppins -->
+  <!-- Open Graph / Social Preview -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="PawFeed — AI-Powered Pet Care" />
+  <meta property="og:description"
+    content="Feeding schedules, nutrition plans, health tracking, and a full AI assistant for every pet — all in one place." />
+  <meta property="og:image" content="/icon-192.png" />
+  <meta property="og:url" content="https://pawfeed.app" />
+  <meta property="og:site_name" content="PawFeed" />
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="PawFeed — AI Pet Care" />
+  <meta name="twitter:description" content="Smart feeding, nutrition, and health tracking for your pets." />
+  <meta name="twitter:image" content="/icon-192.png" />
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+  <link rel="apple-touch-icon" href="/icon-192.png" />
+  <link rel="shortcut icon" href="/icon-192.png" />
+
+  <!-- Google Fonts: Inter + Nunito + Poppins -->
   <link
-    href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Poppins:wght@400;500;600;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Nunito:wght@400;600;700;800;900&family=Poppins:wght@400;500;600;700&display=swap"
     rel="stylesheet">
 
   <!-- App styles -->
@@ -419,8 +439,10 @@
         <input id="loginEmail" type="email" placeholder="Enter email" />
         <label>Password</label>
         <div style="position:relative">
-          <input id="loginPassword" type="password" placeholder="Enter password" style="width:100%; padding-right:40px; box-sizing:border-box" />
-          <span onclick="togglePasswordVisibility('loginPassword', this)" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); cursor:pointer; font-size:18px;">👁️</span>
+          <input id="loginPassword" type="password" placeholder="Enter password"
+            style="width:100%; padding-right:40px; box-sizing:border-box" />
+          <span onclick="togglePasswordVisibility('loginPassword', this)"
+            style="position:absolute; right:12px; top:50%; transform:translateY(-50%); cursor:pointer; font-size:18px;">👁️</span>
         </div>
         <div style="text-align:right;margin-top:6px">
           <span onclick="openForgotPassword()"
@@ -432,10 +454,14 @@
         </div>
         <button class="google-btn" onclick="handleGoogleSignIn()">
           <svg width="18" height="18" viewBox="0 0 48 48">
-            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.7 17.74 9.5 24 9.5z"/>
-            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.2-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+            <path fill="#EA4335"
+              d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.7 17.74 9.5 24 9.5z" />
+            <path fill="#4285F4"
+              d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+            <path fill="#FBBC05"
+              d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+            <path fill="#34A853"
+              d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.2-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
           </svg>
           Continue with Google
         </button>
@@ -454,16 +480,13 @@
           <p class="subtitle" style="margin:0 0 14px">Enter your registered email and we'll retrieve your account.</p>
           <label>Email Address</label>
           <input id="forgotEmail" type="email" placeholder="Enter your email" />
-          <button id="forgotSubmitBtn" class="primary-btn" onclick="submitForgotPassword()">Send Reset Link</button>
+          <button class="primary-btn" onclick="submitForgotPassword()">Find My Account</button>
         </div>
         <div id="forgotStep2" style="display:none;text-align:center;padding:10px 0">
           <div style="font-size:48px;margin-bottom:12px">✅</div>
           <h3 style="font-weight:900;color:var(--dark);margin-bottom:8px">Check Your Email</h3>
-          <p class="subtitle" style="margin:0 0 16px">If an account exists for this email, a reset link has been sent.</p>
-          <div id="forgotPasswordHint"
-            style="background:var(--pill-bg);border:1px solid var(--border);border-radius:16px;padding:14px;margin-bottom:16px;font-size:14px;color:var(--text);font-weight:700">
-            Please check your inbox and spam folders.
-          </div>
+          <p class="subtitle" style="margin:0 0 16px">If an account exists for this email, a reset link has been sent.
+            Please check your inbox (and spam folder).</p>
           <button class="primary-btn" onclick="closeForgotPassword()">Back to Login</button>
         </div>
         <div id="forgotStep3" style="display:none;text-align:center;padding:10px 0">
@@ -471,7 +494,8 @@
           <h3 id="forgotErrorTitle" style="font-weight:900;color:var(--dark);margin-bottom:8px">Request Failed</h3>
           <p id="forgotErrorText" class="subtitle" style="margin:0 0 16px">Something went wrong. Please try again.</p>
           <button class="primary-btn" onclick="resetForgotSteps()">Try Again</button>
-          <button class="secondary-btn" onclick="closeForgotPassword();showScreen('registerScreen')">Create Account</button>
+          <button class="secondary-btn" onclick="closeForgotPassword();showScreen('registerScreen')">Create
+            Account</button>
         </div>
       </div>
     </div>
@@ -490,8 +514,10 @@
         <input id="regEmail" type="email" placeholder="Your email" />
         <label>Password</label>
         <div style="position:relative">
-          <input id="regPassword" type="password" placeholder="Create password" style="width:100%; padding-right:40px; box-sizing:border-box" />
-          <span onclick="togglePasswordVisibility('regPassword', this)" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); cursor:pointer; font-size:18px;">👁️</span>
+          <input id="regPassword" type="password" placeholder="Create password"
+            style="width:100%; padding-right:40px; box-sizing:border-box" />
+          <span onclick="togglePasswordVisibility('regPassword', this)"
+            style="position:absolute; right:12px; top:50%; transform:translateY(-50%); cursor:pointer; font-size:18px;">👁️</span>
         </div>
         <button class="primary-btn" onclick="registerUser()">Register</button>
         <div class="or-divider">
@@ -499,10 +525,14 @@
         </div>
         <button class="google-btn" onclick="handleGoogleSignIn()">
           <svg width="18" height="18" viewBox="0 0 48 48">
-            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.7 17.74 9.5 24 9.5z"/>
-            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.2-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+            <path fill="#EA4335"
+              d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.7 17.74 9.5 24 9.5z" />
+            <path fill="#4285F4"
+              d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+            <path fill="#FBBC05"
+              d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+            <path fill="#34A853"
+              d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.2-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
           </svg>
           Continue with Google
         </button>
@@ -512,881 +542,1136 @@
 
     <!-- MAIN APP -->
     <div id="mainApp" class="hidden">
-      <div class="topbar">
-        <div>
-          <div class="top-title">PawFeed 🐾</div>
-          <small id="topUser" style="color:var(--muted);font-size:13px">Welcome</small>
-        </div>
-        <div class="top-actions">
-          <button class="dark-toggle" onclick="toggleCalendar()" id="calendarBtn" title="Open Calendar"
-            style="font-size:16px">🗓️</button>
-          <button class="dark-toggle" onclick="toggleDarkMode()" id="darkToggleBtn" title="Toggle dark mode">🌙</button>
-          <div class="profile-circle" onclick="openTab('profile')" id="topProfileCircle">👤</div>
-        </div>
-      </div>
-
-      <!-- CALENDAR DROPDOWN -->
-      <div id="calendarDropdown"
-        style="display:none;position:absolute;top:72px;left:0;right:0;z-index:100;padding:0 14px 10px">
-        <div
-          style="background:var(--card);border-radius:22px;box-shadow:0 12px 36px rgba(0,0,0,0.14);border:1px solid var(--border);padding:18px;animation:fadeIn 0.2s ease">
-          <!-- Month Nav -->
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-            <button onclick="calNav(-1)"
-              style="background:var(--pill-bg);color:var(--pill-color);border:none;border-radius:12px;padding:7px 13px;font-size:16px;font-weight:800;cursor:pointer">‹</button>
-            <span id="calMonthLabel" style="font-size:16px;font-weight:900;color:var(--dark)"></span>
-            <button onclick="calNav(1)"
-              style="background:var(--pill-bg);color:var(--pill-color);border:none;border-radius:12px;padding:7px 13px;font-size:16px;font-weight:800;cursor:pointer">›</button>
+      <div class="page-wrapper">
+        <!-- ── DESKTOP SIDEBAR NAV ── -->
+        <nav class="sidebar" aria-label="Main navigation" id="appSidebar">
+          <div class="sidebar-logo">🐾 PawFeed</div>
+          <div class="sidebar-divider"></div>
+          <div class="nav-item" id="snav-home" onclick="openTab('home')" tabindex="0" role="button" aria-label="Home">
+            <div>🏠</div><span>Home</span>
           </div>
-          <!-- Day headers -->
-          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:6px">
-            <div style="text-align:center;font-size:11px;font-weight:800;color:var(--muted);padding:4px 0">S</div>
-            <div style="text-align:center;font-size:11px;font-weight:800;color:var(--muted);padding:4px 0">M</div>
-            <div style="text-align:center;font-size:11px;font-weight:800;color:var(--muted);padding:4px 0">T</div>
-            <div style="text-align:center;font-size:11px;font-weight:800;color:var(--muted);padding:4px 0">W</div>
-            <div style="text-align:center;font-size:11px;font-weight:800;color:var(--muted);padding:4px 0">T</div>
-            <div style="text-align:center;font-size:11px;font-weight:800;color:var(--muted);padding:4px 0">F</div>
-            <div style="text-align:center;font-size:11px;font-weight:800;color:var(--muted);padding:4px 0">S</div>
+          <div class="nav-item" id="snav-careplanner" onclick="openTab('careplanner')" tabindex="0" role="button"
+            aria-label="Care Planner">
+            <div>🗓️</div><span>Planner</span>
           </div>
-          <!-- Days grid -->
-          <div id="calGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px"></div>
-          <!-- Selected date info -->
-          <div id="calSelectedInfo"
-            style="margin-top:14px;padding:12px;background:var(--pill-bg);border-radius:14px;border:1px solid var(--border);min-height:44px;font-size:13px;color:var(--text);font-weight:700;display:flex;align-items:center;gap:8px">
+          <div class="nav-item" id="snav-combo-social" onclick="openCombo('social','community')" tabindex="0"
+            role="button" aria-label="Social & Records">
+            <div>👥</div><span>Social</span>
           </div>
-          <!-- Today button -->
-          <button onclick="calGoToday()"
-            style="width:100%;margin-top:10px;background:var(--orange);color:#0F1B2D;border:none;border-radius:14px;padding:10px;font-size:14px;font-weight:800;cursor:pointer">Go
-            to Today</button>
-        </div>
-      </div>
-
-      <!-- HOME TAB -->
-      <div id="homeTab" class="screen tab-screen">
-
-        <!-- GRADIENT HERO CARD -->
-        <div class="hero-card" id="heroCard">
-          <div class="hero-gradient-overlay" id="heroGradientOverlay"></div>
-          <div class="hero-left">
-            <h2 id="welcomeText">Hello!</h2>
-            <p id="todayPlan">Add your pet profile to get a personalized feeding plan.</p>
-            <span class="hero-badge" id="healthBadge">✨ Smart care enabled</span>
+          <div class="nav-item" id="snav-homemade" onclick="openTab('homemade')" tabindex="0" role="button"
+            aria-label="Homemade Food Studio">
+            <div>🍳</div><span>Food Studio</span>
           </div>
-          <div class="hero-right">
-            <div class="hero-avatar-wrap" id="heroAvatarWrap">🐾</div>
+          <div class="nav-item" id="snav-ai" onclick="openTab('ai')" tabindex="0" role="button" aria-label="PawFeed AI">
+            <div>🤖</div><span>AI Chat</span>
           </div>
-        </div>
-
-        <!-- STREAK BANNER -->
-        <div id="streakBanner" class="streak-banner hidden">
-          <div class="streak-flame">🔥</div>
-          <div class="streak-info">
-            <h3 id="streakTitle">Feeding Streak!</h3>
-            <p id="streakSub">Keep it up!</p>
+          <div class="sidebar-divider"></div>
+          <!-- Extra tabs accessible from sidebar -->
+          <div class="nav-item" id="snav-plan" onclick="openTab('plan')" tabindex="0" role="button"
+            aria-label="Food Plan">
+            <div>🍽️</div><span>Food Plan</span>
           </div>
-          <div class="streak-count" id="streakCount">0</div>
-        </div>
-
-
-        <!-- STATS ROW -->
-        <div class="stats-row" id="homeStatsRow">
-          <div class="stat-card">
-            <div class="stat-icon">🍽️</div>
-            <div class="stat-val" id="statFeedings">0</div>
-            <div class="stat-lbl">Today's Feeds</div>
+          <div class="nav-item" id="snav-tracker" onclick="openTab('tracker')" tabindex="0" role="button"
+            aria-label="Pet Tracker">
+            <div>📊</div><span>Tracker</span>
           </div>
-          <div class="stat-card">
-            <div class="stat-icon">💧</div>
-            <div class="stat-val" id="statWater">0%</div>
-            <div class="stat-lbl">Water Goal</div>
+          <div class="nav-item" id="snav-care" onclick="openTab('care')" tabindex="0" role="button"
+            aria-label="Care & Safety">
+            <div>💧</div><span>Care</span>
           </div>
-          <div class="stat-card">
-            <div class="stat-icon">😊</div>
-            <div class="stat-val" id="statMood">—</div>
-            <div class="stat-lbl">Last Mood</div>
-          </div>
-        </div>
-
-        <!-- Shortcut to Tracker & Insights -->
-        <div style="text-align: center; margin: 12px 0 16px 0;">
-          <button class="secondary-btn" onclick="openTab('tracker')"
-            style="padding: 10px 16px; border-radius: 14px; font-weight:800; font-size:13px; display:inline-flex; align-items:center; gap:6px; background:var(--pill-bg); color:var(--orange); border:1.5px solid rgba(245,166,35,0.3); width:auto; margin:0 auto; cursor:pointer">
-            📈 View Pet Tracker &amp; Insights
-          </button>
-        </div>
-
-        <!-- UPCOMING REMINDER BANNER -->
-        <div id="reminderBanner"></div>
-
-        <h3 class="section-title">My Pets</h3>
-        <div id="petPreview"></div>
-
-        <!-- MISSED MEALS -->
-        <div id="missedMealsSection" class="hidden">
-          <h3 class="section-title">⚠️ Missed Meals Today</h3>
-          <div id="missedMealsBox"></div>
-        </div>
-
-        <!-- WEEKLY MEAL PLANNER -->
-        <div id="weeklyPlanBox"></div>
-
-        <!-- FOOD & MEDICINE STOCK TRACKER -->
-        <div id="stockTrackerContainer"></div>
-
-        <!-- DAILY PET TIP -->
-        <div id="dailyPetTip"></div>
-
-      </div>
-
-      <!-- PLAN TAB -->
-      <div id="planTab" class="screen tab-screen hidden">
-        <h2 style="font-weight:900;color:var(--dark)">🍽️ Food Plan</h2>
-        <p class="subtitle">Based on pet type, age, weight, preference, and health condition.</p>
-        <div id="planPetTabs" class="pet-tabs"></div>
-        <div id="foodPlanBox"></div>
-        <button class="primary-btn" onclick="openLogModal()" style="margin-top:8px">+ Log a Feeding</button>
-      </div>
-
-      <!-- TRACKER TAB -->
-      <div id="trackerTab" class="screen tab-screen hidden">
-        <h2 style="font-weight:900;color:var(--dark)">📊 Pet Tracker</h2>
-        <p class="subtitle">Track weight, water, mood, and feeding history.</p>
-        <div id="trackerPetTabs" class="pet-tabs"></div>
-        <div id="trackerBox"></div>
-      </div>
-
-      <!-- REMINDERS TAB -->
-      <div id="remindersTab" class="screen tab-screen hidden">
-        <h2 style="font-weight:900;color:var(--dark)">⏰ Daily Reminders</h2>
-        <p class="subtitle">Stay on top of your pet's feeding schedule.</p>
-        <button class="primary-btn" onclick="enableNotifications()">Enable Notifications</button>
-        <div id="reminderPetTabs" class="pet-tabs" style="margin-top:14px"></div>
-        <div id="reminderBox" class="card"></div>
-      </div>
-
-      <!-- CARE TAB -->
-      <div id="careTab" class="screen tab-screen hidden">
-        <h2 style="font-weight:900;color:var(--dark)">💧 Care & Safety</h2>
-        <p class="subtitle">Daily care tips and unsafe food warnings.</p>
-
-        <!-- Food Safety Search widget -->
-        <div class="card" style="margin-bottom:16px;">
-          <h3 style="font-weight:900;margin-bottom:8px">🔍 Food Safety Checker</h3>
-          <p class="subtitle" style="margin-bottom:12px">Instant look-up for toxic or unsafe foods, plants, and
-            substances.</p>
-          <div style="display:flex; gap:8px;">
-            <input id="foodSafetySearchInput" type="text"
-              placeholder="Search (e.g. grapes, chocolate, garlic, apple)..." style="flex:1"
-              oninput="searchFoodSafety()" />
-          </div>
-          <div id="foodSafetySearchResult" style="margin-top:14px; display:none;"></div>
-        </div>
-
-        <div id="carePetTabs" class="pet-tabs"></div>
-        <div id="careBox"></div>
-      </div>
-
-      <!-- AI TAB -->
-      <div id="aiTab" class="screen tab-screen hidden" style="padding-bottom: 90px;">
-        <!-- Premium AI Header Banner -->
-        <div style="background: linear-gradient(135deg, var(--purple), var(--blue)); border-radius: 20px; padding: 24px 20px; margin-bottom: 20px; color: white; box-shadow: 0 10px 20px rgba(139, 92, 246, 0.25); position: relative; overflow: hidden;">
-            <div style="position: absolute; top: -15px; right: -15px; font-size: 8rem; opacity: 0.15; transform: rotate(15deg); user-select: none;">🤖</div>
-            <h2 style="font-weight:900; margin: 0 0 5px 0; font-size: 1.8rem; position: relative; z-index: 1;">PawFeed AI</h2>
-            <p style="margin: 0; font-size: 0.95rem; opacity: 0.9; position: relative; z-index: 1; line-height: 1.4;">Powered by Claude AI. Ask anything about your pet's health, diet, and training.</p>
-        </div>
-        <div class="ai-box">
-          <b style="font-size:15px">Ask PawFeed AI</b>
-          <div id="chatWindow" class="chat-window">
-            <div class="msg bot-msg">Hi! I'm PawFeed AI 🐾 Ask me about feeding time, safe food, water, moods, or pet
-              care. I'll give personalized advice based on your pet's profile!</div>
-          </div>
-          <div class="chat-row">
-            <input id="aiInput" type="text" placeholder="Ask something..."
-              autocomplete="off" autocorrect="off" spellcheck="false" dir="ltr"
-              style="-webkit-user-select: auto; user-select: auto; transform: translateZ(0);"
-              onkeydown="if(event.key==='Enter') sendAIMessage()" />
-            <button onclick="sendAIMessage()">➤</button>
-          </div>
-        </div>
-
-        <!-- WEEKLY AI SUMMARY -->
-        <div style="margin-top: 24px; padding: 20px; border-radius: 20px; background: linear-gradient(145deg, var(--card), var(--card-2)); box-shadow: var(--shadow); border: 1px solid var(--border); position: relative; overflow: hidden;">
-            <div style="position: absolute; top: 0; right: 0; width: 100px; height: 100px; background: radial-gradient(circle, rgba(16, 185, 129, 0.2) 0%, transparent 70%); border-radius: 50%;"></div>
-            <h3 style="margin: 0 0 8px 0; font-size: 1.2rem; color: var(--dark); font-weight: 800; display: flex; align-items: center; gap: 8px;">✨ Weekly AI Digest</h3>
-            <p style="margin: 0 0 16px 0; font-size: 0.9rem; color: var(--muted); line-height: 1.5;">Get an AI-generated health and wellness summary of your pet's week based on your logs.</p>
-            <button class="primary-btn" onclick="generateWeeklySummary()" style="background: linear-gradient(135deg, var(--teal), var(--green)); width: 100%; border: none; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);">✨ Generate Summary</button>
-          <div id="weeklySummaryBox" style="margin-top:12px"></div>
-        </div>
-      </div>
-
-      <!-- COMMUNITY TAB -->
-      <div id="communityTab" class="screen tab-screen hidden">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <div>
-            <h2 style="font-weight:900;color:var(--dark)">👥 Pet Community</h2>
-            <p class="subtitle" style="margin-bottom:0;">Share pet photos and updates.</p>
-          </div>
-        </div>
-        <div class="card">
-          <label>Post Type</label>
-          <select id="communityPostType">
-            <option value="photo">🐾 Pet Photo</option>
-            <option value="recipe">🍲 Community Recipe</option>
-            <option value="tip">💡 Care Tip</option>
-          </select>
-          <label>Caption / Message</label>
-          <textarea id="communityCaption" placeholder="Share a pet moment, recipe, or care tip..." rows="3"></textarea>
-          <input type="file" id="communityPhotoInput" accept="image/*" style="display:none"
-            onchange="handleCommunityImage(event)" />
-          <button class="upload-photo-btn" onclick="document.getElementById('communityPhotoInput').click()">
-            📷 Add Photo
-          </button>
-          <div id="communityPhotoPreview"></div>
-          <button class="primary-btn" onclick="addCommunityPost()" style="margin-top:4px">🚀 Post to Community</button>
-        </div>
-        <div class="section-header">
-          <h3 class="section-title">Latest Feed</h3>
-        </div>
-        <div id="communityFeedBox"></div>
-      </div>
-
-      <!-- MARKETPLACE TAB -->
-      <div id="marketTab" class="screen tab-screen hidden">
-        <h2 style="font-weight:900;color:var(--dark)">🛒 Pet Food Marketplace</h2>
-        <p class="subtitle">Shop for pet food and care items.</p>
-        <div class="card">
-          <label>Filter by Pet Type</label>
-          <select id="marketFilter" onchange="renderMarketplace()">
-            <option value="All">All Pets</option>
-            <option>Dog</option>
-            <option>Cat</option>
-            <option>Rabbit</option>
-            <option>Bird</option>
-            <option>Hamster</option>
-          </select>
-        </div>
-        <div id="marketProductsBox"></div>
-        <div class="card">
-          <h3 style="font-weight:900">🧾 Cart</h3>
-          <div id="cartBox"></div>
-          <button class="primary-btn" onclick="checkoutCart()">Place Order</button>
-        </div>
-      </div>
-
-
-
-      <!-- COMPUTER VISION TAB -->
-      <div id="visionTab" class="screen tab-screen hidden">
-        <h2 style="font-weight:900;color:var(--dark)">📷 Smart Vision Scan</h2>
-        <p class="subtitle">Upload a photo to simulate food safety, breed, body weight, and skin/fur checks.</p>
-        <div class="card">
-          <label>Scan Mode</label>
-          <select id="scanMode">
-            <option value="food">Scan Pet Food / Unsafe Food</option>
-            <option value="breed">Pet Breed Detection</option>
-            <option value="weight">Body Weight Estimation</option>
-            <option value="fur">Skin / Fur Issue Detection</option>
-          </select>
-          <label>Optional Description</label>
-          <input id="scanDescription" placeholder="Example: chocolate biscuit, golden dog, red skin patch" />
-          <input type="file" id="visionInput" accept="image/*" capture="environment" style="display:none"
-            onchange="handleVisionImage(event)" />
-          <button class="secondary-btn" onclick="document.getElementById('visionInput').click()">📷 Upload / Use
-            Camera</button>
-          <div id="visionPreview"></div>
-          <button class="primary-btn" onclick="runVisionScan()">Run Smart Scan</button>
-        </div>
-        <div id="visionResultBox"></div>
-        <h3 class="section-title">Recent Scans</h3>
-        <div id="scanHistoryBox"></div>
-      </div>
-
-
-
-      <!-- HOMEMADE FOOD TAB -->
-      <div id="homemadeTab" class="screen tab-screen hidden">
-        <div class="homefood-hero">
-          <h2>🍳 Homemade Food Studio</h2>
-          <p>Personalized homemade recipes, weekly nutrition plans, safe ingredient checks, meal quantity, shopping
-            list, timers, favorites, and AI cooking support for all your pets.</p>
-          <span class="badge">Pro nutrition dashboard</span>
-        </div>
-
-        <div id="homemadePetTabs" class="pet-tabs" style="margin-top:14px"></div>
-
-        <div class="card" style="padding:12px 14px">
-          <!-- Search bar row with filter toggle button -->
-          <div style="display:flex;gap:8px;align-items:center;position:relative">
-            <div style="flex:1;position:relative">
-              <input id="recipeSearch"
-                placeholder="Search recipes..."
-                autocomplete="off"
-                oninput="onRecipeSearchInput(this.value)"
-                onfocus="onRecipeSearchInput(this.value)"
-                onblur="setTimeout(()=>closeRecipeSuggestions(),200)"
-                style="flex:1;margin:0;width:100%;padding-right:32px;font-size:14px" />
-              <!-- Clear button inside search -->
-              <span id="recipeSearchClear" onclick="clearRecipeSearch()" style="display:none;position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:15px;color:var(--muted);cursor:pointer;line-height:1">✕</span>
-              <!-- Autocomplete dropdown -->
-              <div id="recipeSuggestions" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--input-bg);border:1.5px solid var(--input-border);border-radius:14px;z-index:9999;max-height:380px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.13)"></div>
+          <div class="sidebar-bottom">
+            <div class="sidebar-divider"></div>
+            <div class="nav-item" onclick="toggleDarkMode()" tabindex="0" role="button" aria-label="Toggle dark mode">
+              <div id="sidebarDarkIcon">🌙</div><span>Dark Mode</span>
             </div>
-            <button id="filterToggleBtn" onclick="toggleRecipeFilters()" style="background:var(--input-bg);border:1.5px solid var(--input-border);border-radius:12px;padding:8px 11px;cursor:pointer;flex-shrink:0;color:var(--muted);transition:all 0.2s;display:flex;align-items:center;justify-content:center" title="Filters">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-            </button>
-          </div>
-
-          <!-- Filter panel (hidden by default) -->
-          <div id="recipeFilterPanel" class="hidden" style="margin-top:12px;display:flex;flex-direction:column;gap:10px">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-              <div>
-                <label style="margin: 0 0 6px 0">Category</label>
-                <select id="recipeCategory" onchange="renderHomemadeTab()">
-                  <option value="All">All Categories</option>
-                  <option value="Meal">Main Meal</option>
-                  <option value="Snack">Treat / Snack</option>
-                  <option value="Quick">Emergency Quick Meal</option>
-                  <option value="Allergy">Allergy Friendly</option>
-                  <option value="Budget">Budget Friendly</option>
-                  <option value="Seasonal">Seasonal</option>
-                </select>
-              </div>
-              <div>
-                <label style="margin: 0 0 6px 0">Diet Type</label>
-                <select id="recipeVegFilter" onchange="renderHomemadeTab()">
-                  <option value="All">All</option>
-                  <option value="Veg">Veg</option>
-                  <option value="Non-Veg">Non-Veg</option>
-                </select>
-              </div>
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-              <div>
-                <label style="margin: 0 0 6px 0">Age Group</label>
-                <select id="filterAgeGroup" onchange="renderHomemadeTab()">
-                  <option value="All">All Ages</option>
-                  <option value="Baby">Baby/Puppy</option>
-                  <option value="Adult">Adult</option>
-                  <option value="Senior">Senior</option>
-                </select>
-              </div>
-              <div>
-                <label style="margin: 0 0 6px 0">Difficulty</label>
-                <select id="filterDifficulty" onchange="renderHomemadeTab()">
-                  <option value="All">All Levels</option>
-                  <option value="Easy">Easy</option>
-                  <option value="Medium">Medium</option>
-                  <option value="Hard">Hard</option>
-                </select>
-              </div>
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-              <div>
-                <label style="margin: 0 0 6px 0">Cook Time</label>
-                <select id="filterCookTime" onchange="renderHomemadeTab()">
-                  <option value="All">All Times</option>
-                  <option value="under15">Under 15 mins</option>
-                  <option value="15to30">15 to 30 mins</option>
-                  <option value="over30">Over 30 mins</option>
-                </select>
-              </div>
-              <div>
-                <label style="margin: 0 0 6px 0">Vet Approved</label>
-                <select id="filterVetApproved" onchange="renderHomemadeTab()">
-                  <option value="All">All Recipes</option>
-                  <option value="Approved">🩺 Vet Approved</option>
-                </select>
-              </div>
-            </div>
-            <button onclick="resetRecipeFilters()" style="background:none;border:1px solid var(--border);border-radius:10px;padding:7px;font-size:12px;color:var(--muted);cursor:pointer">✕ Clear All Filters</button>
-          </div>
-        </div>
-
-        <div class="homefood-tools">
-          <div class="homefood-tool" onclick="calculateMealAndWater()"><span>🧮</span><b>Meal
-              Calculator</b><small>Quantity, calories and water.</small></div>
-          <div class="homefood-tool" onclick="startFoodTimer()"><span>⏲️</span><b>Cooking Timer</b><small>Voice-guided
-              step timer.</small></div>
-        </div>
-
-        <!-- Meal Calculator Results -->
-        <div id="calcResultBox"></div>
-
-        <!-- Cooking Timer -->
-        <div id="timerBox"></div>
-
-        <div id="homemadeDashboard"></div>
-
-
-        <div class="assistant-mini">
-          <b>🍲 AI Food Assistant</b>
-          <p style="font-size:12px;opacity:.8;margin:6px 0">Ask about substitutes, allergies, storage, recipes, or diet
-            plans.</p>
-          <div class="chat-row">
-            <input id="foodAIInput" placeholder="Example: substitute chicken for my cat"
-              onkeydown="if(event.key==='Enter') askFoodAssistant()" />
-            <button onclick="askFoodAssistant()">➤</button>
-          </div>
-          <div id="foodAIReply" style="font-size:13px;line-height:1.45;margin-top:10px"></div>
-        </div>
-
-
-
-        <div class="section-header">
-          <h3 class="section-title">🍱 Recipe Library</h3>
-        </div>
-        <div id="recipeLibraryBox"></div>
-
-        <h3 class="section-title">⭐ Favorites & Recently Viewed</h3>
-        <div id="recipeMemoryBox"></div>
-      </div>
-
-      <!-- PROFILE TAB -->
-      <div id="profileTab" class="screen tab-screen hidden">
-        <h2 style="font-weight:900;color:var(--dark)">👤 My Profile</h2>
-
-        <!-- User Avatar -->
-        <div class="avatar-upload">
-          <div class="avatar-preview" id="userAvatarPreview"
-            onclick="document.getElementById('userAvatarInput').click()">
-            <span id="userAvatarEmoji">👤</span>
-          </div>
-          <input type="file" id="userAvatarInput" accept="image/*" style="display:none"
-            onchange="handleUserAvatar(event)" />
-          <div class="upload-hint">Tap to change profile photo</div>
-        </div>
-
-        <div class="card">
-          <label>Your Name</label>
-          <input id="profileName" type="text" />
-          <label>Email</label>
-          <input id="profileEmail" type="email" disabled />
-          <div id="googleBadge" class="hidden" style="margin-bottom:12px;align-items:center;gap:6px;font-size:13px;color:var(--dark);background:var(--pill-bg);padding:8px 12px;border-radius:12px;border:1px solid var(--border);width:fit-content;">
-            <svg width="14" height="14" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.7 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.2-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-            <strong style="font-weight:900;">Connected with Google</strong>
-          </div>
-          <button class="primary-btn" onclick="saveProfile()">Save Profile</button>
-        </div>
-
-        <!-- Household Sharing Card -->
-        <div class="card" style="background:var(--card-2); border:1.5px dashed var(--blue);">
-          <h3 style="margin-top:0; color:var(--dark);">🏠 Household Sharing</h3>
-          <p class="subtitle" style="margin-bottom:8px">Share your household ID with a co-parent to manage pets together
-            in real-time.</p>
-          <label>Your Household ID</label>
-          <div style="display:flex;gap:8px;margin-bottom:12px;">
-            <input id="householdIdDisplay" type="text" readonly
-              style="flex:1; background:var(--bg); border:1px solid var(--border); font-family:monospace;" />
-            <button class="secondary-btn" onclick="copyHouseholdId()" style="width:auto;padding:0 12px;">Copy</button>
-          </div>
-          <label>Join a Co-Parent's Household</label>
-          <div style="display:flex;gap:8px;">
-            <input id="joinHouseholdInput" type="text" placeholder="Paste ID here..." style="flex:1;" />
-            <button class="primary-btn" onclick="joinHousehold()" style="width:auto;padding:0 12px;">Join</button>
-          </div>
-        </div>
-
-        <!-- Settings -->
-        <div class="card">
-          <div class="toggle-wrap">
-            <span class="toggle-label">🔔 Feeding Reminders</span>
-            <button class="toggle-switch" id="reminderToggle" onclick="toggleReminderSetting()"></button>
-          </div>
-          <div class="toggle-wrap">
-            <span class="toggle-label">📊 Show Streaks</span>
-            <button class="toggle-switch on" id="streakToggle" onclick="toggleStreakSetting()"></button>
-          </div>
-        </div>
-
-        <!-- Expense Tracker -->
-        <div id="expenseTrackerContainer"></div>
-
-        <h3 class="section-title">🐾 My Pets</h3>
-        <div id="petListBox"></div>
-        <button class="primary-btn" onclick="openPetModal(-1)" style="margin-top:4px">+ Add New Pet</button>
-
-
-
-        <div id="noPetSection" class="card" style="margin-top:16px">
-          <div style="display:flex;align-items:center;gap:10px">
-            <input type="checkbox" id="noPetCheck" onchange="toggleNoPet()"
-              style="width:20px;height:20px;cursor:pointer;accent-color:var(--orange)" />
-            <label style="margin:0;text-transform:none;font-size:14px;color:var(--text);cursor:pointer"
-              for="noPetCheck">I don't have a pet (browse general tips only)</label>
-          </div>
-        </div>
-
-        <button class="danger-btn" style="margin-top:16px" onclick="logoutUser()">Logout</button>
-      </div>
-
-      <!-- CARE PLANNER TAB -->
-      <div id="careplannerTab" class="screen tab-screen hidden">
-        <h2 style="font-weight:900;color:var(--dark)">🗓️ Care Planner</h2>
-        <p class="subtitle">Plan future care events and manage your pet's schedule.</p>
-
-        <!-- Active Pet Selector -->
-        <div id="plannerPetTabs" class="pet-tabs"></div>
-
-        <!-- Calendar Card -->
-        <div class="card">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-            <h3 id="plannerMonthLabel" style="font-weight:900;color:var(--dark)">June 2026</h3>
-            <div style="display:flex;gap:6px">
-              <button onclick="navigatePlannerMonth(-1)" class="small-btn"
-                style="padding:6px 12px;font-size:14px">‹</button>
-              <button onclick="navigatePlannerMonth(1)" class="small-btn"
-                style="padding:6px 12px;font-size:14px">›</button>
+            <div class="nav-item" id="snav-profile" onclick="openTab('profile')" tabindex="0" role="button"
+              aria-label="Profile">
+              <div>👤</div><span>Profile</span>
             </div>
           </div>
-          <div id="plannerCalendarGrid" class="planner-calendar-grid"></div>
-        </div>
-
-        <!-- Selected Date Summary & Daily Progress -->
-        <div class="card" style="background:var(--success-bg);border:1px solid var(--teal)">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-            <b id="selectedDateLabel" style="color:var(--teal);font-size:15px">Monday, June 15, 2026</b>
-            <span id="plannerProgressLabel" style="font-weight:800;color:var(--teal);font-size:13px">0/0
-              completed</span>
-          </div>
-          <div class="progress-bar-wrap" style="background:rgba(78,205,196,0.15)">
-            <div id="plannerProgressBar" class="progress-bar" style="width:0%;background:var(--teal)"></div>
-          </div>
-        </div>
-
-        <!-- Add Custom Task Card -->
-        <div class="card">
-          <h3 style="font-weight:900;margin-bottom:12px">➕ Add Care Task</h3>
-
-          <label>Task Title</label>
-          <div style="display:flex;gap:8px;margin-bottom:10px">
-            <select id="addTaskPreset" onchange="onTaskPresetChange()" style="flex:1">
-              <option value="">-- Custom Task --</option>
-              <option value="Feed 🥣">Feed 🥣</option>
-              <option value="Water 💧">Water 💧</option>
-              <option value="Walk 🦮">Walk 🦮</option>
-              <option value="Play 🧸">Play 🧸</option>
-              <option value="Medicine 💊">Medicine 💊</option>
-              <option value="Grooming 🧼">Grooming 🧼</option>
-            </select>
-            <input id="addTaskTitle" type="text" placeholder="e.g. Clean cage, Brush teeth" style="flex:1.5" />
-          </div>
-
-          <label>Scheduled Date & Time</label>
-          <input id="addTaskDateTime" type="datetime-local" />
-
-          <label>Repeat Options</label>
-          <select id="addTaskRepeat">
-            <option value="none">One-time (None)</option>
-            <option value="daily">Daily</option>
-            <option value="weekly">Weekly</option>
-            <option value="monthly">Monthly</option>
-          </select>
-
-          <div class="toggle-wrap" style="margin-top:14px;padding:4px 0">
-            <span class="toggle-label">🔔 Enable Reminder Notification</span>
-            <button class="toggle-switch on" id="addTaskReminderToggle" onclick="this.classList.toggle('on')"></button>
-          </div>
-
-          <button class="primary-btn" onclick="addPlannerTask()" style="margin-top:14px">Add to Care Plan</button>
-        </div>
-
-        <!-- Tasks Listing Sections -->
-        <div id="plannerIncompleteSection" style="display:none">
-          <h3 class="section-title" id="plannerIncompleteHeader" style="color:var(--red)">❌ Incomplete Tasks</h3>
-          <div id="plannerIncompleteList"></div>
-        </div>
-
-        <h3 class="section-title" id="plannerPendingHeader">📋 Today's Tasks</h3>
-        <div id="plannerPendingList"></div>
-
-        <h3 class="section-title" id="plannerCompletedHeader">✅ Completed Today</h3>
-        <div id="plannerCompletedList"></div>
-
-      </div>
-
-      <!-- COMBO: SOCIAL + GAME -->
-      <div id="comboTab-social" class="screen tab-screen hidden">
-        <div class="combo-sub-tabs">
-          <div class="combo-sub-tab active" id="csub-community" onclick="switchComboSub('social','community')">👥 Social
-          </div>
-          <div class="combo-sub-tab" id="csub-records" onclick="switchComboSub('social','records')">🏥 Records</div>
-        </div>
-        <div id="comboInner-social-community"></div>
-        <div id="comboInner-social-records" style="display:none">
-      <!-- RECORDS TAB -->
-      <div id="recordsTab" style="padding: 10px; padding-bottom: 90px;">
-        <!-- Premium Header Banner -->
-        <div style="background: linear-gradient(135deg, var(--orange), var(--red)); border-radius: 20px; padding: 24px 20px; margin-bottom: 20px; color: white; box-shadow: 0 10px 20px rgba(0,0,0,0.1); position: relative; overflow: hidden;">
-            <div style="position: absolute; top: -15px; right: -15px; font-size: 8rem; opacity: 0.15; transform: rotate(15deg); user-select: none;">🏥</div>
-            <h2 style="font-weight:900; margin: 0 0 5px 0; font-size: 1.8rem; position: relative; z-index: 1;">Health Records</h2>
-            <p style="margin: 0; font-size: 0.95rem; opacity: 0.9; position: relative; z-index: 1; line-height: 1.4;">Manage your pet's medical history, vet visits, and documents.</p>
-        </div>
-        
-        <div class="combo-sub-tabs" style="margin-top: 15px;">
-          <div class="combo-sub-tab active" id="rsub-history" onclick="switchRecordsSub('history')">💉 Vaccination Record</div>
-          <div class="combo-sub-tab" id="rsub-documents" onclick="switchRecordsSub('documents')">📄 Medical Reports</div>
-        </div>
-        
-        <!-- Vaccination Record Sub-tab -->
-        <div id="rinner-history">
-            <button class="btn btn-primary" style="width:100%;margin-bottom:15px;" onclick="openMedicalRecordModal()">+ Add Record</button>
-            <div id="medicalRecordsBox"></div>
-        </div>
-
-        <!-- Documents Sub-tab -->
-        <div id="rinner-documents" style="display:none">
-            <button class="btn btn-primary" style="width:100%;margin-bottom:15px;" onclick="openMedicalReportModal()">+ Upload Report</button>
-            <div id="medicalReportsBox"></div>
-        </div>
-      </div>
-    </div>
-      </div>
-
-      <!-- ADD/EDIT RECIPE MODAL -->
-      <div id="recipeModal" class="modal-overlay hidden" style="z-index: 10000;">
-        <div class="modal-content" style="max-height:85vh;overflow-y:auto;border-radius:24px;padding:24px">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-            <h3 id="recipeModalTitle" style="font-weight:900;color:var(--dark);margin:0">Add Recipe</h3>
-            <button class="close-btn" onclick="closeRecipeModal()"
-              style="font-size:24px;background:none;border:none;cursor:pointer">✕</button>
-          </div>
-          <input type="hidden" id="editRecipeId" />
-
-          <label>Recipe Name</label>
-          <input id="formRecipeName" type="text" placeholder="e.g. Healthy Salmon Mash" />
-
-          <label>Animal Type</label>
-          <select id="formRecipeAnimal">
-            <option>Dog</option>
-            <option>Cat</option>
-            <option>Hamster</option>
-            <option>Rabbit</option>
-            <option>Bird</option>
-          </select>
-
-          <label>Category</label>
-          <select id="formRecipeCategory">
-            <option value="Meal">Meal</option>
-            <option value="Snack">Snack</option>
-            <option value="Supplement">Supplement</option>
-            <option value="Allergy">Allergy</option>
-            <option value="Budget">Budget</option>
-            <option value="Seasonal">Seasonal</option>
-          </select>
-
-          <label>Suitable Age Group</label>
-          <select id="formRecipeAge">
-            <option value="All">All Ages</option>
-            <option value="Baby">Baby/Puppy/Kitten</option>
-            <option value="Adult">Adult</option>
-            <option value="Senior">Senior</option>
-          </select>
-
-          <label>Difficulty Level</label>
-          <select id="formRecipeDiff">
-            <option>Easy</option>
-            <option>Medium</option>
-            <option>Hard</option>
-          </select>
-
-          <label>Cooking Time</label>
-          <input id="formRecipeTime" type="text" placeholder="e.g. 20 mins" />
-
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        </nav>
+        <!-- ── MAIN CONTENT AREA ── -->
+        <div class="main-content-col"
+          style="display:flex; flex-direction:column; width:100%; position:relative; overflow-x:hidden; min-height:100vh;">
+          <div class="topbar">
             <div>
-              <label>Calories (kcal)</label>
-              <input id="formRecipeCal" type="number" placeholder="250" />
+              <div class="top-title">PawFeed 🐾</div>
+              <small id="topUser" style="color:var(--muted);font-size:13px">Welcome</small>
             </div>
-            <div>
-              <label>Protein (g)</label>
-              <input id="formRecipeProt" type="text" placeholder="15g" />
-            </div>
-          </div>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
-            <div>
-              <label>Fat (g)</label>
-              <input id="formRecipeFat" type="text" placeholder="5g" />
-            </div>
-            <div>
-              <label>Fiber (g)</label>
-              <input id="formRecipeFib" type="text" placeholder="3g" />
-            </div>
-            <div>
-              <label>Carbs (g)</label>
-              <input id="formRecipeCarb" type="text" placeholder="20g" />
+            <div class="top-actions">
+              <button class="dark-toggle" onclick="toggleCalendar()" id="calendarBtn" title="Open Calendar"
+                style="font-size:16px">🗓️</button>
+              <button class="dark-toggle" onclick="toggleDarkMode()" id="darkToggleBtn"
+                title="Toggle dark mode">🌙</button>
+              <div class="profile-circle" onclick="openTab('profile')" id="topProfileCircle">👤</div>
             </div>
           </div>
 
-          <label>Health Condition Compatibility</label>
-          <input id="formRecipeCondition" type="text" placeholder="e.g. Sensitive Stomach, Kidney Care" />
-
-          <label>Ingredients (comma separated)</label>
-          <textarea id="formRecipeIngredients" placeholder="e.g. Salmon, sweet potato, green beans"
-            style="height:60px"></textarea>
-
-          <label>Preparation Steps (one per line)</label>
-          <textarea id="formRecipeSteps" placeholder="Step 1: Steam the sweet potato&#10;Step 2: Bake the salmon"
-            style="height:80px"></textarea>
-
-          <label>Health Benefits / Vet Tips</label>
-          <input id="formRecipeVetTip" type="text" placeholder="e.g. Rich in Omega-3 fatty acids" />
-
-          <label>Recipe Image</label>
-          <input id="formRecipeImageFile" type="file" accept="image/*" onchange="handleRecipeImageUpload(event)"
-            style="padding:8px" />
-          <input id="formRecipeImage" type="hidden" />
-          <div id="formRecipeImagePreview" style="margin-top:8px; display:none;">
-            <img id="formRecipeImagePreviewImg" src="" style="max-height:100px; border-radius:12px; object-fit:cover" />
-          </div>
-
-          <div style="display:flex;align-items:center;gap:8px;margin:12px 0">
-            <input id="formRecipeVetApproved" type="checkbox" style="width:auto;margin:0" />
-            <label for="formRecipeVetApproved" style="margin:0;cursor:pointer">🩺 Mark as Vet Approved</label>
-          </div>
-
-          <button class="primary-btn" onclick="saveRecipeForm()">Save Recipe</button>
-        </div>
-      </div>
-
-      <!-- PLANNER ASSIGN MODAL -->
-      <div id="plannerModal" class="modal-overlay hidden" style="z-index: 10000;"
-        onclick="document.getElementById('plannerModal').classList.add('hidden')">
-        <div class="modal-content" onclick="event.stopPropagation()"
-          style="max-height:85vh;overflow-y:auto;border-radius:24px;padding:24px">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-            <h3 style="font-weight:900;color:var(--dark);margin:0">Assign Recipe to Meal Plan</h3>
-            <button class="close-btn" onclick="document.getElementById('plannerModal').classList.add('hidden')"
-              style="font-size:24px;background:none;border:none;cursor:pointer">✕</button>
-          </div>
-          <p class="subtitle" style="margin-bottom:12px">Select a recipe suitable for your pet to assign to this meal slot.</p>
-          <input id="plannerSearch" placeholder="🔍 Search recipes to assign..." oninput="filterPlannerRecipes()" style="margin-bottom:12px;width:100%" />
-          <div id="plannerSelectBox"></div>
-        </div>
-      </div>
-
-      <!-- RECIPE DETAIL MODAL -->
-      <div id="recipeDetailModal" class="modal-overlay hidden" style="z-index: 10000;"
-        onclick="closeRecipeDetailModal()">
-        <div class="modal-content" onclick="event.stopPropagation()"
-          style="max-height:85vh;overflow-y:auto;border-radius:24px;padding:24px">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-            <h3 id="modalRecipeName" style="font-weight:900;color:var(--dark);margin:0">Recipe Details</h3>
-            <button class="close-btn" onclick="closeRecipeDetailModal()"
-              style="font-size:24px;background:none;border:none;cursor:pointer">✕</button>
-          </div>
-          <div id="modalRecipeBody"></div>
-        </div>
-      </div>
-
-      <!-- COMMENTS MODAL -->
-      <div id="commentsModal" class="modal-overlay hidden" style="z-index: 10000;" onclick="closeCommentsModal()">
-        <div class="modal-content" onclick="event.stopPropagation()"
-          style="height:85vh; display:flex; flex-direction:column; overflow:hidden; border-radius:24px; padding:24px; background:var(--bg)">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-shrink:0">
-            <h3 style="font-weight:900;color:var(--dark);margin:0">💬 Comments</h3>
-            <button class="close-btn" onclick="closeCommentsModal()"
-              style="font-size:24px;background:none;border:none;cursor:pointer;color:var(--dark)">✕</button>
-          </div>
-          <div id="commentsList" style="flex:1; overflow-y:auto; margin-bottom:16px; padding-right:8px;"></div>
-          <div style="display:flex;gap:8px;flex-shrink:0;align-items:flex-end">
-            <textarea id="commentInput" placeholder="Add a comment..."
-              rows="1"
-              autocomplete="off" autocorrect="off" spellcheck="false" dir="ltr"
-              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();document.getElementById('postCommentBtn').click();}"
-              style="flex:1; border-radius:20px; border:1px solid var(--border); padding:10px 16px; background:var(--card-2); color:var(--text); outline:none; resize:none; font-family:inherit; font-size:14px; line-height:1.4; max-height:80px; overflow-y:auto; -webkit-user-select:text; user-select:text;"></textarea>
-            <button class="primary-btn" id="postCommentBtn" style="border-radius:20px; padding:10px 20px; flex-shrink:0;">Post</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- DIRECT MESSAGES MODAL -->
-      <div id="dmModal" class="modal-overlay hidden" style="z-index: 10001;" onclick="closeDMModal()">
-        <div class="dm-modal-content" onclick="event.stopPropagation()">
-
-          <!-- Inbox View -->
-          <div id="dmInboxView" style="display:flex; flex-direction:column; height:100%;">
-            <div class="dm-header">
-              <h3>📩 Direct Messages</h3>
-              <button class="close-btn" onclick="closeDMModal()"
-                style="font-size:24px;background:none;border:none;cursor:pointer;color:var(--dark)">✕</button>
-            </div>
-            <div style="padding:16px; border-bottom:1px solid var(--border);">
-              <button class="dm-new-btn" onclick="showNewDMView()">+ New Message</button>
-            </div>
-            <div id="dmChatList" style="flex:1; overflow-y:auto; padding:12px;"></div>
-          </div>
-
-          <!-- Search View -->
-          <div id="dmSearchView" class="hidden" style="display:flex; flex-direction:column; height:100%;">
-            <div class="dm-header">
-              <button onclick="backToInbox()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--dark);">←</button>
-              <h3>New Message</h3>
-              <div style="width:24px;"></div>
-            </div>
-            <div class="dm-input-area" style="padding-top:16px; padding-bottom:16px;">
-              <input type="text" id="dmSearchInput" placeholder="Search by username...">
-              <button class="send-btn" onclick="searchUsers()" style="border-radius:20px; padding:0 20px; width:auto; height:auto;">Search</button>
-            </div>
-            <div id="dmSearchList" style="flex:1; overflow-y:auto; padding:12px;"></div>
-          </div>
-
-          <!-- Chat View -->
-          <div id="dmChatView" class="hidden" style="display:flex; flex-direction:column; height:100%;">
-            <div class="dm-header">
-              <button onclick="backToInbox()"
-                style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--dark);">←</button>
-              <h3 id="dmChatRecipientName">User</h3>
-              <div style="width:24px;"></div>
-            </div>
-            <div id="dmMessageList"
-              style="flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:16px; background:var(--bg);"></div>
-            <div class="dm-input-area">
-              <input type="text" id="dmInput" placeholder="Message..."
-                autocomplete="off" autocorrect="off" spellcheck="false" dir="ltr"
-                style="-webkit-user-select: auto; user-select: auto; transform: translateZ(0);">
-              <button class="send-btn" onclick="sendDM()">➤</button>
+          <!-- CALENDAR DROPDOWN -->
+          <div id="calendarDropdown"
+            style="display:none;position:absolute;top:72px;left:0;right:0;z-index:100;padding:0 14px 10px">
+            <div
+              style="background:var(--card);border-radius:22px;box-shadow:0 12px 36px rgba(0,0,0,0.14);border:1px solid var(--border);padding:18px;animation:fadeIn 0.2s ease">
+              <!-- Month Nav -->
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+                <button onclick="calNav(-1)"
+                  style="background:var(--pill-bg);color:var(--pill-color);border:none;border-radius:12px;padding:7px 13px;font-size:16px;font-weight:800;cursor:pointer">‹</button>
+                <span id="calMonthLabel" style="font-size:16px;font-weight:900;color:var(--dark)"></span>
+                <button onclick="calNav(1)"
+                  style="background:var(--pill-bg);color:var(--pill-color);border:none;border-radius:12px;padding:7px 13px;font-size:16px;font-weight:800;cursor:pointer">›</button>
+              </div>
+              <!-- Day headers -->
+              <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:6px">
+                <div style="text-align:center;font-size:11px;font-weight:800;color:var(--muted);padding:4px 0">S</div>
+                <div style="text-align:center;font-size:11px;font-weight:800;color:var(--muted);padding:4px 0">M</div>
+                <div style="text-align:center;font-size:11px;font-weight:800;color:var(--muted);padding:4px 0">T</div>
+                <div style="text-align:center;font-size:11px;font-weight:800;color:var(--muted);padding:4px 0">W</div>
+                <div style="text-align:center;font-size:11px;font-weight:800;color:var(--muted);padding:4px 0">T</div>
+                <div style="text-align:center;font-size:11px;font-weight:800;color:var(--muted);padding:4px 0">F</div>
+                <div style="text-align:center;font-size:11px;font-weight:800;color:var(--muted);padding:4px 0">S</div>
+              </div>
+              <!-- Days grid -->
+              <div id="calGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px"></div>
+              <!-- Selected date info -->
+              <div id="calSelectedInfo"
+                style="margin-top:14px;padding:12px;background:var(--pill-bg);border-radius:14px;border:1px solid var(--border);min-height:44px;font-size:13px;color:var(--text);font-weight:700;display:flex;align-items:center;gap:8px">
+              </div>
+              <!-- Today button -->
+              <button onclick="calGoToday()"
+                style="width:100%;margin-top:10px;background:var(--orange);color:#0F1B2D;border:none;border-radius:14px;padding:10px;font-size:14px;font-weight:800;cursor:pointer">Go
+                to Today</button>
             </div>
           </div>
 
-        </div>
-      </div>
+          <!-- HOME TAB -->
+          <div id="homeTab" class="screen tab-screen">
 
-      <!-- BOTTOM NAV -->
-      <div class="bottom-nav">
-        <div class="nav-item active" id="nav-home" onclick="openTab('home')">
-          <div>🏠</div>Home
-        </div>
-        <div class="nav-item" id="nav-careplanner" onclick="openTab('careplanner')">
-          <div>🗓️</div>Planner
-        </div>
-        <div class="nav-item" id="nav-combo-social" onclick="openCombo('social','records')">
-          <div>👥</div>Social
-        </div>
-        <div class="nav-item" id="nav-homemade" onclick="openTab('homemade')">
-          <div>🍳</div>Food
-        </div>
-        <div class="nav-item" id="nav-ai" onclick="openTab('ai')">
-          <div>🤖</div>AI
-        </div>
+            <!-- GRADIENT HERO CARD -->
+            <div class="hero-card" id="heroCard">
+              <div class="hero-gradient-overlay" id="heroGradientOverlay"></div>
+              <div class="hero-left">
+                <h2 id="welcomeText">Hello!</h2>
+                <p id="todayPlan">Add your pet profile to get a personalized feeding plan.</p>
+                <span class="hero-badge" id="healthBadge">✨ Smart care enabled</span>
+              </div>
+              <div class="hero-right">
+                <div class="hero-avatar-wrap" id="heroAvatarWrap">🐾</div>
+              </div>
+            </div>
 
-      </div>
-    </div>
-  </div>
+            <!-- STREAK BANNER -->
+            <div id="streakBanner" class="streak-banner hidden">
+              <div class="streak-flame">🔥</div>
+              <div class="streak-info">
+                <h3 id="streakTitle">Feeding Streak!</h3>
+                <p id="streakSub">Keep it up!</p>
+              </div>
+              <div class="streak-count" id="streakCount">0</div>
+            </div>
+
+
+            <!-- STATS ROW -->
+            <div class="stats-row" id="homeStatsRow">
+              <div class="stat-card">
+                <div class="stat-icon">🍽️</div>
+                <div class="stat-val" id="statFeedings">0</div>
+                <div class="stat-lbl">Today's Feeds</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon">💧</div>
+                <div class="stat-val" id="statWater">0%</div>
+                <div class="stat-lbl">Water Goal</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon">😊</div>
+                <div class="stat-val" id="statMood">—</div>
+                <div class="stat-lbl">Last Mood</div>
+              </div>
+            </div>
+
+            <!-- Shortcut to Tracker & Insights -->
+            <div style="text-align: center; margin: 12px 0 16px 0;">
+              <button class="secondary-btn" onclick="openTab('tracker')"
+                style="padding: 10px 16px; border-radius: 14px; font-weight:800; font-size:13px; display:inline-flex; align-items:center; gap:6px; background:var(--pill-bg); color:var(--orange); border:1.5px solid rgba(245,166,35,0.3); width:auto; margin:0 auto; cursor:pointer">
+                📈 View Pet Tracker &amp; Insights
+              </button>
+            </div>
+
+            <!-- UPCOMING REMINDER BANNER -->
+            <div id="reminderBanner"></div>
+
+            <h3 class="section-title">My Pets</h3>
+            <div id="petPreview"></div>
+
+            <!-- MISSED MEALS -->
+            <div id="missedMealsSection" class="hidden">
+              <h3 class="section-title">⚠️ Missed Meals Today</h3>
+              <div id="missedMealsBox"></div>
+            </div>
+
+            <!-- WEEKLY MEAL PLANNER -->
+            <div id="weeklyPlanBox"></div>
+
+            <!-- FOOD & MEDICINE STOCK TRACKER -->
+            <div id="stockTrackerContainer"></div>
+
+            <!-- DAILY PET TIP -->
+            <div id="dailyPetTip"></div>
+
+          </div>
+
+          <!-- PLAN TAB -->
+          <div id="planTab" class="screen tab-screen hidden">
+            <h2 style="font-weight:900;color:var(--dark)">🍽️ Food Plan</h2>
+            <p class="subtitle">Based on pet type, age, weight, preference, and health condition.</p>
+            <div id="planPetTabs" class="pet-tabs"></div>
+            <div id="foodPlanBox"></div>
+          </div>
+
+          <!-- TRACKER TAB -->
+          <div id="trackerTab" class="screen tab-screen hidden">
+            <h2 style="font-weight:900;color:var(--dark)">📊 Pet Tracker</h2>
+            <p class="subtitle">Track weight, water, mood, and feeding history.</p>
+            <div id="trackerPetTabs" class="pet-tabs"></div>
+            <div id="trackerBox"></div>
+          </div>
+
+          <!-- REMINDERS TAB -->
+          <div id="remindersTab" class="screen tab-screen hidden">
+            <h2 style="font-weight:900;color:var(--dark)">⏰ Daily Reminders</h2>
+            <p class="subtitle">Stay on top of your pet's feeding schedule.</p>
+            <button class="primary-btn" onclick="enableNotifications()">Enable Notifications</button>
+            <div id="reminderPetTabs" class="pet-tabs" style="margin-top:14px"></div>
+            <div id="reminderBox" class="card"></div>
+          </div>
+
+          <!-- CARE TAB -->
+          <div id="careTab" class="screen tab-screen hidden">
+            <h2 style="font-weight:900;color:var(--dark)">💧 Care & Safety</h2>
+            <p class="subtitle">Daily care tips and unsafe food warnings.</p>
+
+            <!-- Food Safety Search widget -->
+            <div class="card" style="margin-bottom:16px;">
+              <h3 style="font-weight:900;margin-bottom:8px">🔍 Food Safety Checker</h3>
+              <p class="subtitle" style="margin-bottom:12px">Instant look-up for toxic or unsafe foods, plants, and
+                substances.</p>
+              <div style="display:flex; gap:8px;">
+                <input id="foodSafetySearchInput" type="text"
+                  placeholder="Search (e.g. grapes, chocolate, garlic, apple)..." style="flex:1"
+                  oninput="searchFoodSafety()" />
+              </div>
+              <div id="foodSafetySearchResult" style="margin-top:14px; display:none;"></div>
+            </div>
+
+            <div id="carePetTabs" class="pet-tabs"></div>
+            <div id="careBox"></div>
+
+            <!-- MEDICATIONS TRACKER -->
+            <div class="card" style="margin-top:16px; border-left: 5px solid var(--orange)">
+              <h3 style="font-weight:900; margin-bottom:4px">💊 Medications</h3>
+              <p class="subtitle" style="margin-bottom:12px">Track daily doses, schedules, and veterinary prescriptions.</p>
+              
+              <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:14px">
+                <div id="medListBox"></div>
+              </div>
+
+              <div id="addMedForm" style="background:var(--bg); border:1px solid var(--border); padding:14px; border-radius:16px;">
+                <h4 style="font-weight:900; font-size:14px; color:var(--dark); margin:0 0 10px 0;">➕ Add Medication</h4>
+                
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px">
+                  <div>
+                    <label style="font-size:11px; margin-bottom:4px; display:block">Medicine Name</label>
+                    <input id="medName" type="text" placeholder="e.g. Heartgard, Apoquel" style="margin:0; padding:8px 10px; font-size:13px; border-radius:10px; border:1px solid var(--border); background:#fff; color:var(--text)">
+                  </div>
+                  <div>
+                    <label style="font-size:11px; margin-bottom:4px; display:block">Dosage</label>
+                    <input id="medDose" type="text" placeholder="e.g. 1 pill, 5ml" style="margin:0; padding:8px 10px; font-size:13px; border-radius:10px; border:1px solid var(--border); background:#fff; color:var(--text)">
+                  </div>
+                </div>
+
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px">
+                  <div>
+                    <label style="font-size:11px; margin-bottom:4px; display:block">Schedule Time</label>
+                    <input id="medTime" type="time" style="margin:0; padding:8px 10px; font-size:13px; border-radius:10px; border:1px solid var(--border); background:#fff; color:var(--text)">
+                  </div>
+                  <div>
+                    <label style="font-size:11px; margin-bottom:4px; display:block">Notes</label>
+                    <input id="medNotes" type="text" placeholder="e.g. Give with food" style="margin:0; padding:8px 10px; font-size:13px; border-radius:10px; border:1px solid var(--border); background:#fff; color:var(--text)">
+                  </div>
+                </div>
+
+                <button class="primary-btn" onclick="addMed()" style="margin:0; width:100%; padding:10px; border-radius:12px; font-size:13px">Add Medication</button>
+              </div>
+            </div>
+
+            <!-- VET VISIT TRACKER -->
+            <div class="card" style="margin-top:16px; border-left: 5px solid var(--primary)">
+              <h3 style="font-weight:900; margin-bottom:4px">🩺 Veterinary Logs</h3>
+              <p class="subtitle" style="margin-bottom:12px">Log vet appointments, vaccinations, and track upcoming checkups.</p>
+              
+              <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:14px">
+                <div id="vetListBox"></div>
+              </div>
+
+              <div id="addVetVisitForm" style="background:var(--bg); border:1px solid var(--border); padding:14px; border-radius:16px;">
+                <h4 style="font-weight:900; font-size:14px; color:var(--dark); margin:0 0 10px 0;">➕ Log Vet Visit</h4>
+                
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px">
+                  <div>
+                    <label style="font-size:11px; margin-bottom:4px; display:block">Visit Date</label>
+                    <input id="vetDate" type="date" style="margin:0; padding:8px 10px; font-size:13px; border-radius:10px; border:1px solid var(--border); background:#fff; color:var(--text)">
+                  </div>
+                  <div>
+                    <label style="font-size:11px; margin-bottom:4px; display:block">Clinic Name</label>
+                    <input id="vetClinic" type="text" placeholder="e.g. City Vet Clinic" style="margin:0; padding:8px 10px; font-size:13px; border-radius:10px; border:1px solid var(--border); background:#fff; color:var(--text)">
+                  </div>
+                </div>
+
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px">
+                  <div>
+                    <label style="font-size:11px; margin-bottom:4px; display:block">Reason / Treatment</label>
+                    <input id="vetReason" type="text" placeholder="e.g. Annual Checkup, Vaccination" style="margin:0; padding:8px 10px; font-size:13px; border-radius:10px; border:1px solid var(--border); background:#fff; color:var(--text)">
+                  </div>
+                  <div>
+                    <label style="font-size:11px; margin-bottom:4px; display:block">Next Appointment</label>
+                    <input id="vetNext" type="date" style="margin:0; padding:8px 10px; font-size:13px; border-radius:10px; border:1px solid var(--border); background:#fff; color:var(--text)">
+                  </div>
+                </div>
+
+                <div style="margin-bottom:12px">
+                  <label style="font-size:11px; margin-bottom:4px; display:block">Notes / Observations</label>
+                  <input id="vetNotes" type="text" placeholder="e.g. Prescribed ear drops for 7 days" style="margin:0; padding:8px 10px; font-size:13px; border-radius:10px; border:1px solid var(--border); background:#fff; color:var(--text)">
+                </div>
+
+                <button class="primary-btn" onclick="addVetVisit()" style="margin:0; width:100%; padding:10px; border-radius:12px; font-size:13px">Log Visit</button>
+              </div>
+            </div>
+
+            <!-- SLEEP TRACKER -->
+            <div class="card" style="margin-top:16px; border-left: 5px solid var(--teal)">
+              <h3 style="font-weight:900; margin-bottom:4px">💤 Sleep Log</h3>
+              <p class="subtitle" style="margin-bottom:12px">Record your pet's sleep duration and quality to monitor rest patterns.</p>
+              
+              <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:14px">
+                <div id="sleepHistoryBox"></div>
+              </div>
+
+              <div id="addSleepLogForm" style="background:var(--bg); border:1px solid var(--border); padding:14px; border-radius:16px;">
+                <h4 style="font-weight:900; font-size:14px; color:var(--dark); margin:0 0 10px 0;">➕ Log Sleep</h4>
+                
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px">
+                  <div>
+                    <label style="font-size:11px; margin-bottom:4px; display:block">Hours Slept</label>
+                    <input id="sleepHours" type="number" step="0.5" placeholder="e.g. 12" style="margin:0; padding:8px 10px; font-size:13px; border-radius:10px; border:1px solid var(--border); background:#fff; color:var(--text)">
+                  </div>
+                  <div>
+                    <label style="font-size:11px; margin-bottom:4px; display:block">Rest Quality</label>
+                    <select id="sleepQuality" style="margin:0; padding:8px 10px; font-size:13px; border-radius:10px; border:1px solid var(--border); background:#fff; color:var(--text)">
+                      <option value="Excellent">Excellent 😊</option>
+                      <option value="Good" selected>Good 🙂</option>
+                      <option value="Normal">Normal 😐</option>
+                      <option value="Restless">Restless 😴</option>
+                      <option value="Poor">Poor 😟</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style="margin-bottom:12px">
+                  <label style="font-size:11px; margin-bottom:4px; display:block">Sleep Notes (optional)</label>
+                  <input id="sleepNotes" type="text" placeholder="e.g. Slept through the night peacefully" style="margin:0; padding:8px 10px; font-size:13px; border-radius:10px; border:1px solid var(--border); background:#fff; color:var(--text)">
+                </div>
+
+                <button class="primary-btn" onclick="logSleep()" style="margin:0; width:100%; padding:10px; border-radius:12px; font-size:13px">Log Sleep</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- AI TAB -->
+          <div id="aiTab" class="screen tab-screen hidden" style="padding-bottom: 90px;">
+            <!-- Premium AI Header Banner -->
+            <div
+              style="background: linear-gradient(135deg, var(--purple), var(--blue)); border-radius: 20px; padding: 24px 20px; margin-bottom: 20px; color: white; box-shadow: 0 10px 20px rgba(139, 92, 246, 0.25); position: relative; overflow: hidden;">
+              <div
+                style="position: absolute; top: -15px; right: -15px; font-size: 8rem; opacity: 0.15; transform: rotate(15deg); user-select: none;">
+                🤖</div>
+              <h2 style="font-weight:900; margin: 0 0 5px 0; font-size: 1.8rem; position: relative; z-index: 1;">PawFeed
+                AI</h2>
+              <p style="margin: 0; font-size: 0.95rem; opacity: 0.9; position: relative; z-index: 1; line-height: 1.4;">
+                Powered by Claude AI. Ask anything about your pet's health, diet, and training.</p>
+            </div>
+            <div class="ai-box">
+              <b style="font-size:15px">Ask PawFeed AI</b>
+              <div id="chatWindow" class="chat-window">
+                <div class="msg bot-msg">Hi! I'm PawFeed AI 🐾 Ask me about feeding time, safe food, water, moods, or
+                  pet
+                  care. I'll give personalized advice based on your pet's profile!</div>
+              </div>
+              <div class="chat-row">
+                <input id="aiInput" type="text" placeholder="Ask something..." autocomplete="off" autocorrect="off"
+                  spellcheck="false" dir="ltr"
+                  style="-webkit-user-select: auto; user-select: auto; transform: translateZ(0);"
+                  onkeydown="if(event.key==='Enter') sendAIMessage()" />
+                <button onclick="sendAIMessage()">➤</button>
+              </div>
+            </div>
+
+            <!-- WEEKLY AI SUMMARY -->
+            <div
+              style="margin-top: 24px; padding: 20px; border-radius: 20px; background: linear-gradient(145deg, var(--card), var(--card-2)); box-shadow: var(--shadow); border: 1px solid var(--border); position: relative; overflow: hidden;">
+              <div
+                style="position: absolute; top: 0; right: 0; width: 100px; height: 100px; background: radial-gradient(circle, rgba(16, 185, 129, 0.2) 0%, transparent 70%); border-radius: 50%;">
+              </div>
+              <h3
+                style="margin: 0 0 8px 0; font-size: 1.2rem; color: var(--dark); font-weight: 800; display: flex; align-items: center; gap: 8px;">
+                ✨ Weekly AI Digest</h3>
+              <p style="margin: 0 0 16px 0; font-size: 0.9rem; color: var(--muted); line-height: 1.5;">Get an
+                AI-generated health and wellness summary of your pet's week based on your logs.</p>
+              <button class="primary-btn" onclick="generateWeeklySummary()"
+                style="background: linear-gradient(135deg, var(--teal), var(--green)); width: 100%; border: none; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);">✨
+                Generate Summary</button>
+              <div id="weeklySummaryBox" style="margin-top:12px"></div>
+            </div>
+          </div>
+
+          <!-- COMMUNITY TAB -->
+          <div id="communityTab" class="screen tab-screen hidden">
+            <div class="planner-desktop-grid">
+              <div class="planner-left-col">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+                  <div>
+                    <h2 style="font-weight:900;color:var(--dark)">👥 Pet Community</h2>
+                    <p class="subtitle" style="margin-bottom:0;">Share pet photos and updates.</p>
+                  </div>
+                </div>
+                <div class="card">
+                  <label>Post Type</label>
+                  <select id="communityPostType">
+                    <option value="photo">🐾 Pet Photo</option>
+                    <option value="recipe">🍲 Community Recipe</option>
+                    <option value="tip">💡 Care Tip</option>
+                  </select>
+                  <label>Caption / Message</label>
+                  <textarea id="communityCaption" placeholder="Share a pet moment, recipe, or care tip..."
+                    rows="3"></textarea>
+                  <input type="file" id="communityPhotoInput" accept="image/*" style="display:none"
+                    onchange="handleCommunityImage(event)" />
+                  <button class="upload-photo-btn" onclick="document.getElementById('communityPhotoInput').click()">
+                    📷 Add Photo
+                  </button>
+                  <div id="communityPhotoPreview"></div>
+                  <button class="primary-btn" onclick="addCommunityPost()" style="margin-top:4px">🚀 Post to
+                    Community</button>
+                </div>
+              </div> <!-- End left column -->
+              <div class="planner-right-col">
+                <div class="section-header">
+                  <h3 class="section-title" style="margin-top:0;">Latest Feed</h3>
+                </div>
+                <div id="communityFeedBox"></div>
+              </div> <!-- End right column -->
+            </div> <!-- End grid -->
+          </div>
+
+          <!-- Marketplace and Vision tabs removed -->
+
+
+
+          <!-- HOMEMADE FOOD TAB -->
+          <div id="homemadeTab" class="screen tab-screen hidden">
+            <div class="homefood-hero">
+              <h2>🍳 Homemade Food Studio</h2>
+              <p>Personalized homemade recipes, weekly nutrition plans, safe ingredient checks, meal quantity, shopping
+                list, timers, favorites, and AI cooking support for all your pets.</p>
+              <span class="badge">Pro nutrition dashboard</span>
+            </div>
+
+            <div id="homemadePetTabs" class="pet-tabs" style="margin-top:14px"></div>
+
+            <div class="card" style="padding:12px 14px">
+              <!-- Search bar row with filter toggle button -->
+              <div style="display:flex;gap:8px;align-items:center;position:relative">
+                <div style="flex:1;position:relative">
+                  <input id="recipeSearch" placeholder="Search recipes..." autocomplete="off"
+                    oninput="onRecipeSearchInput(this.value)" onfocus="onRecipeSearchInput(this.value)"
+                    onblur="setTimeout(()=>closeRecipeSuggestions(),200)"
+                    style="flex:1;margin:0;width:100%;padding-right:32px;font-size:14px" />
+                  <!-- Clear button inside search -->
+                  <span id="recipeSearchClear" onclick="clearRecipeSearch()"
+                    style="display:none;position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:15px;color:var(--muted);cursor:pointer;line-height:1">✕</span>
+                  <!-- Autocomplete dropdown -->
+                  <div id="recipeSuggestions"
+                    style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--input-bg);border:1.5px solid var(--input-border);border-radius:14px;z-index:9999;max-height:380px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.13)">
+                  </div>
+                </div>
+                <button id="filterToggleBtn" onclick="toggleRecipeFilters()"
+                  style="background:var(--input-bg);border:1.5px solid var(--input-border);border-radius:12px;padding:8px 11px;cursor:pointer;flex-shrink:0;color:var(--muted);transition:all 0.2s;display:flex;align-items:center;justify-content:center"
+                  title="Filters">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                  </svg>
+                </button>
+              </div>
+
+              <!-- Filter panel (hidden by default) -->
+              <div id="recipeFilterPanel" class="hidden"
+                style="margin-top:12px;display:flex;flex-direction:column;gap:10px">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                  <div>
+                    <label style="margin: 0 0 6px 0">Category</label>
+                    <select id="recipeCategory" onchange="renderHomemadeTab()">
+                      <option value="All">All Categories</option>
+                      <option value="Meal">Main Meal</option>
+                      <option value="Snack">Treat / Snack</option>
+                      <option value="Quick">Emergency Quick Meal</option>
+                      <option value="Allergy">Allergy Friendly</option>
+                      <option value="Budget">Budget Friendly</option>
+                      <option value="Seasonal">Seasonal</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style="margin: 0 0 6px 0">Diet Type</label>
+                    <select id="recipeVegFilter" onchange="renderHomemadeTab()">
+                      <option value="All">All</option>
+                      <option value="Veg">Veg</option>
+                      <option value="Non-Veg">Non-Veg</option>
+                    </select>
+                  </div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                  <div>
+                    <label style="margin: 0 0 6px 0">Age Group</label>
+                    <select id="filterAgeGroup" onchange="renderHomemadeTab()">
+                      <option value="All">All Ages</option>
+                      <option value="Baby">Baby/Puppy</option>
+                      <option value="Adult">Adult</option>
+                      <option value="Senior">Senior</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style="margin: 0 0 6px 0">Difficulty</label>
+                    <select id="filterDifficulty" onchange="renderHomemadeTab()">
+                      <option value="All">All Levels</option>
+                      <option value="Easy">Easy</option>
+                      <option value="Medium">Medium</option>
+                      <option value="Hard">Hard</option>
+                    </select>
+                  </div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                  <div>
+                    <label style="margin: 0 0 6px 0">Cook Time</label>
+                    <select id="filterCookTime" onchange="renderHomemadeTab()">
+                      <option value="All">All Times</option>
+                      <option value="under15">Under 15 mins</option>
+                      <option value="15to30">15 to 30 mins</option>
+                      <option value="over30">Over 30 mins</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style="margin: 0 0 6px 0">Vet Approved</label>
+                    <select id="filterVetApproved" onchange="renderHomemadeTab()">
+                      <option value="All">All Recipes</option>
+                      <option value="Approved">🩺 Vet Approved</option>
+                    </select>
+                  </div>
+                </div>
+                <button onclick="resetRecipeFilters()"
+                  style="background:none;border:1px solid var(--border);border-radius:10px;padding:7px;font-size:12px;color:var(--muted);cursor:pointer">✕
+                  Clear All Filters</button>
+              </div>
+            </div>
+
+            <div class="homefood-tools">
+              <div class="homefood-tool" onclick="calculateMealAndWater()"><span>🧮</span><b>Meal
+                  Calculator</b><small>Quantity, calories and water.</small></div>
+              <div class="homefood-tool" onclick="startFoodTimer()"><span>⏲️</span><b>Cooking
+                  Timer</b><small>Voice-guided
+                  step timer.</small></div>
+              <div class="homefood-tool" onclick="document.getElementById('aiRecipeBuilderCard').classList.toggle('hidden')"><span>🤖</span><b>AI Recipe Builder</b><small>Generate custom recipes.</small></div>
+            </div>
+
+            <!-- Meal Calculator Results -->
+            <div id="calcResultBox"></div>
+
+            <!-- Cooking Timer -->
+            <div id="timerBox"></div>
+
+            <!-- AI RECIPE BUILDER PANEL -->
+            <div id="aiRecipeBuilderCard" class="card hidden" style="border: 2px solid var(--purple); background: linear-gradient(135deg, rgba(139,92,246,0.05) 0%, rgba(139,92,246,0.02) 100%); margin-bottom: 20px; border-radius: 18px;">
+              <h3 style="font-size: 18px; font-weight: 900; color: var(--dark); display: flex; align-items: center; gap: 8px; margin: 0 0 10px 0;">
+                <span>🤖</span> AI Recipe Builder
+              </h3>
+              <p class="subtitle" style="margin-bottom:12px">Tell our AI what ingredients your pet loves or any allergies they have, and we will formulate a safe, customized recipe.</p>
+              
+              <label style="font-size: 12px; font-weight: 700; margin-bottom: 4px; display: block;">Dietary Constraints / Ingredients to Include or Exclude</label>
+              <textarea id="aiRecipeConstraints" placeholder="e.g. Include carrots and salmon, avoid grain, chicken allergy..." rows="3" style="width:100%; border-radius:12px; border:1.5px solid var(--border); padding:10px; font-size:13px; margin-bottom:12px; background:var(--input-bg); color:var(--text)"></textarea>
+              
+              <button class="primary-btn" onclick="generateAIRecipe()" style="margin: 0; width: 100%; font-size: 14px; font-weight: 800; border-radius: 12px; padding: 12px; display: flex; align-items: center; justify-content: center; gap: 8px; background: linear-gradient(135deg, var(--purple), var(--blue)); box-shadow: 0 4px 15px rgba(139, 92, 246, 0.25);">
+                <span>✨ Generate Custom Recipe</span>
+              </button>
+            </div>
+
+            <!-- 🐾 SMART RECIPE RECOMMENDATION SECTION (.pkl Model Inference) -->
+            <div class="card" style="border: 2px solid var(--orange); background: linear-gradient(135deg, rgba(255,122,0,0.05) 0%, rgba(255,154,60,0.02) 100%); margin-bottom: 20px; border-radius: 18px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                <h3 style="font-size: 18px; font-weight: 900; color: var(--dark); display: flex; align-items: center; gap: 8px; margin: 0;">
+                  <span>🐾</span> Smart Recipe Recommendation
+                </h3>
+              </div>
+              <p class="subtitle" style="margin: 0 0 14px 0; font-size: 13px;">Smart recipe recommendations for your pet based on species, age, weight, and calories.</p>
+
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 14px;">
+                <div>
+                  <label style="font-size: 12px; font-weight: 700; margin-bottom: 4px; display: block;">Pet Name</label>
+                  <input id="recPetName" type="text" value="Bruno" style="margin: 0; padding: 9px 12px; font-size: 13px;" />
+                </div>
+                <div>
+                  <label style="font-size: 12px; font-weight: 700; margin-bottom: 4px; display: block;">Animal</label>
+                  <select id="recAnimal" style="margin: 0; padding: 9px 12px; font-size: 13px;">
+                    <option value="Dog" selected>Dog</option>
+                    <option value="Cat">Cat</option>
+                    <option value="Bird">Bird</option>
+                    <option value="Rabbit">Rabbit</option>
+                    <option value="Hamster">Hamster</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size: 12px; font-weight: 700; margin-bottom: 4px; display: block;">Age (Years)</label>
+                  <input id="recAge" type="number" value="4" step="0.5" min="0" style="margin: 0; padding: 9px 12px; font-size: 13px;" />
+                </div>
+                <div>
+                  <label style="font-size: 12px; font-weight: 700; margin-bottom: 4px; display: block;">Weight (kg)</label>
+                  <input id="recWeight" type="number" value="18" step="0.5" min="0" style="margin: 0; padding: 9px 12px; font-size: 13px;" />
+                </div>
+                <div>
+                  <label style="font-size: 12px; font-weight: 700; margin-bottom: 4px; display: block;">Calories (kcal)</label>
+                  <input id="recCalories" type="number" value="900" step="10" min="0" style="margin: 0; padding: 9px 12px; font-size: 13px;" />
+                </div>
+              </div>
+
+              <button id="recBtn" class="primary-btn" onclick="fetchSmartRecommendations()" style="margin: 0; width: 100%; font-size: 15px; font-weight: 800; border-radius: 12px; padding: 12px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <span>[ Recommend Recipes ]</span>
+              </button>
+
+              <div id="recResultsContainer" style="margin-top: 18px; display: block;">
+                <div style="border-top: 2px dashed var(--border); padding-top: 14px; margin-top: 14px;">
+                  <h4 style="font-size: 16px; font-weight: 900; color: var(--dark); margin: 0 0 12px 0;">Top 5 Recommendations</h4>
+                  <div id="recResultsList" style="display: flex; flex-direction: column; gap: 12px;"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Inventory / Stock Tracker Container -->
+            <div id="stockTrackerContainer"></div>
+
+            <div id="homemadeDashboard"></div>
+
+
+
+            <div class="section-header">
+              <h3 class="section-title">🍱 Recipe Library</h3>
+            </div>
+            <div id="recipeLibraryBox"></div>
+
+            <h3 class="section-title">⭐ Favorites & Recently Viewed</h3>
+            <div id="recipeMemoryBox"></div>
+          </div>
+
+          <!-- PROFILE TAB -->
+          <div id="profileTab" class="screen tab-screen hidden">
+            <div class="planner-desktop-grid">
+              <div class="planner-left-col">
+                <h2 style="font-weight:900;color:var(--dark)">👤 My Profile</h2>
+
+                <!-- User Avatar -->
+                <div class="avatar-upload">
+                  <div class="avatar-preview" id="userAvatarPreview"
+                    onclick="document.getElementById('userAvatarInput').click()">
+                    <span id="userAvatarEmoji">👤</span>
+                  </div>
+                  <input type="file" id="userAvatarInput" accept="image/*" style="display:none"
+                    onchange="handleUserAvatar(event)" />
+                  <div class="upload-hint">Tap to change profile photo</div>
+                </div>
+
+                <div class="card">
+                  <label>Your Name</label>
+                  <input id="profileName" type="text" />
+                  <label>Email</label>
+                  <input id="profileEmail" type="email" disabled />
+                  <div id="googleBadge" class="hidden"
+                    style="margin-bottom:12px;align-items:center;gap:6px;font-size:13px;color:var(--dark);background:var(--pill-bg);padding:8px 12px;border-radius:12px;border:1px solid var(--border);width:fit-content;">
+                    <svg width="14" height="14" viewBox="0 0 48 48">
+                      <path fill="#EA4335"
+                        d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.7 17.74 9.5 24 9.5z" />
+                      <path fill="#4285F4"
+                        d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+                      <path fill="#FBBC05"
+                        d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+                      <path fill="#34A853"
+                        d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.2-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+                    </svg>
+                    <strong style="font-weight:900;">Connected with Google</strong>
+                  </div>
+                  <button class="primary-btn" onclick="saveProfile()">Save Profile</button>
+                </div>
+
+                <!-- Household Sharing Card -->
+                <div class="card" style="background:var(--card-2); border:1.5px dashed var(--blue);">
+                  <h3 style="margin-top:0; color:var(--dark);">🏠 Household Sharing</h3>
+                  <p class="subtitle" style="margin-bottom:8px">Share your household ID with a co-parent to manage pets
+                    together
+                    in real-time.</p>
+                  <label>Your Household ID</label>
+                  <div style="display:flex;gap:8px;margin-bottom:12px;">
+                    <input id="householdIdDisplay" type="text" readonly
+                      style="flex:1; background:var(--bg); border:1px solid var(--border); font-family:monospace;" />
+                    <button class="secondary-btn" onclick="copyHouseholdId()"
+                      style="width:auto;padding:0 12px;">Copy</button>
+                  </div>
+                  <label>Join a Co-Parent's Household</label>
+                  <div style="display:flex;gap:8px;">
+                    <input id="joinHouseholdInput" type="text" placeholder="Paste ID here..." style="flex:1;" />
+                    <button class="primary-btn" onclick="joinHousehold()"
+                      style="width:auto;padding:0 12px;">Join</button>
+                  </div>
+                </div>
+              </div> <!-- End left column -->
+
+              <div class="planner-right-col">
+                <!-- Settings -->
+                <div class="card">
+                  <div class="toggle-wrap">
+                    <span class="toggle-label">🔔 Feeding Reminders</span>
+                    <button class="toggle-switch" id="reminderToggle" onclick="toggleReminderSetting()"></button>
+                  </div>
+                  <div class="toggle-wrap">
+                    <span class="toggle-label">📊 Show Streaks</span>
+                    <button class="toggle-switch on" id="streakToggle" onclick="toggleStreakSetting()"></button>
+                  </div>
+                </div>
+
+                <!-- Expense Tracker -->
+                <div id="expenseTrackerContainer"></div>
+
+                <h3 class="section-title">🐾 My Pets</h3>
+                <div id="petListBox"></div>
+                <button class="primary-btn" onclick="openPetModal(-1)" style="margin-top:4px">+ Add New Pet</button>
+
+                <div id="noPetSection" class="card" style="margin-top:16px">
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <input type="checkbox" id="noPetCheck" onchange="toggleNoPet()"
+                      style="width:20px;height:20px;cursor:pointer;accent-color:var(--orange)" />
+                    <label style="margin:0;text-transform:none;font-size:14px;color:var(--text);cursor:pointer"
+                      for="noPetCheck">I don't have a pet (browse general tips only)</label>
+                  </div>
+                </div>
+
+                <button class="danger-btn" style="margin-top:16px" onclick="logoutUser()">Logout</button>
+              </div> <!-- End right column -->
+            </div> <!-- End grid -->
+          </div>
+
+          <!-- CARE PLANNER TAB -->
+          <div id="careplannerTab" class="screen tab-screen hidden">
+            <h2 style="font-weight:900;color:var(--dark)">🗓️ Care Planner</h2>
+            <p class="subtitle">Plan future care events and manage your pet's schedule.</p>
+
+            <!-- Active Pet Selector -->
+            <div id="plannerPetTabs" class="pet-tabs"></div>
+
+            <div class="planner-desktop-grid">
+              <div class="planner-left-col">
+                <!-- Calendar Card -->
+                <div class="card">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                    <h3 id="plannerMonthLabel" style="font-weight:900;color:var(--dark)">June 2026</h3>
+                    <div style="display:flex;gap:6px">
+                      <button onclick="navigatePlannerMonth(-1)" class="small-btn"
+                        style="padding:6px 12px;font-size:14px">‹</button>
+                      <button onclick="navigatePlannerMonth(1)" class="small-btn"
+                        style="padding:6px 12px;font-size:14px">›</button>
+                    </div>
+                  </div>
+                  <div id="plannerCalendarGrid" class="planner-calendar-grid"></div>
+                </div>
+
+                <!-- Selected Date Summary & Daily Progress -->
+                <div class="card" style="background:var(--success-bg);border:1px solid var(--teal)">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                    <b id="selectedDateLabel" style="color:var(--teal);font-size:15px">Monday, June 15, 2026</b>
+                    <span id="plannerProgressLabel" style="font-weight:800;color:var(--teal);font-size:13px">0/0
+                      completed</span>
+                  </div>
+                  <div class="progress-bar-wrap" style="background:rgba(78,205,196,0.15)">
+                    <div id="plannerProgressBar" class="progress-bar" style="width:0%;background:var(--teal)"></div>
+                  </div>
+                </div>
+
+                <!-- Add Custom Task Card -->
+                <div class="card" id="addCareTaskCard">
+                  <div id="addTaskLockNotice" style="display:none; background:rgba(255,122,0,0.12); border:1px solid var(--orange); border-radius:12px; padding:10px 14px; margin-bottom:14px; font-size:13px; font-weight:700; color:var(--dark); align-items:center; gap:8px;">
+                    🔒 Task creation & editing are locked for non-today dates. Select today's date to add or edit tasks.
+                  </div>
+                  <h3 style="font-weight:900;margin-bottom:12px">➕ Add Care Task</h3>
+
+                  <label>Task Title</label>
+                  <div style="display:flex;gap:8px;margin-bottom:10px">
+                    <select id="addTaskPreset" onchange="onTaskPresetChange()" style="flex:1">
+                      <option value="">-- Custom Task --</option>
+                      <option value="Feed 🥣">Feed 🥣</option>
+                      <option value="Water 💧">Water 💧</option>
+                      <option value="Walk 🦮">Walk 🦮</option>
+                      <option value="Play 🧸">Play 🧸</option>
+                      <option value="Medicine 💊">Medicine 💊</option>
+                      <option value="Grooming 🧼">Grooming 🧼</option>
+                    </select>
+                    <input id="addTaskTitle" type="text" placeholder="e.g. Clean cage, Brush teeth" style="flex:1.5" />
+                  </div>
+
+                  <label>Scheduled Date & Time</label>
+                  <input id="addTaskDateTime" type="datetime-local" />
+
+                  <label>Repeat Options</label>
+                  <select id="addTaskRepeat">
+                    <option value="none">One-time (None)</option>
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                  </select>
+
+                  <div class="toggle-wrap" style="margin-top:14px;padding:4px 0">
+                    <span class="toggle-label">🔔 Enable Reminder Notification</span>
+                    <button class="toggle-switch on" id="addTaskReminderToggle"
+                      onclick="this.classList.toggle('on')"></button>
+                  </div>
+
+                  <button id="addPlannerTaskBtn" class="primary-btn" onclick="addPlannerTask()" style="margin-top:14px">Add to Care
+                    Plan</button>
+                </div>
+              </div> <!-- End planner-left-col -->
+
+              <div class="planner-right-col">
+                <!-- Tasks Listing Sections -->
+                <div id="plannerIncompleteSection" style="display:none">
+                  <h3 class="section-title" id="plannerIncompleteHeader" style="color:var(--red)">❌ Incomplete Tasks
+                  </h3>
+                  <div id="plannerIncompleteList"></div>
+                </div>
+
+                <h3 class="section-title" id="plannerPendingHeader">📋 Today's Tasks</h3>
+                <div id="plannerPendingList"></div>
+
+                <h3 class="section-title" id="plannerCompletedHeader">✅ Completed Today</h3>
+                <div id="plannerCompletedList"></div>
+
+              </div> <!-- End planner-right-col -->
+            </div> <!-- End planner-desktop-grid -->
+          </div>
+
+          <!-- COMBO: SOCIAL + GAME -->
+          <div id="comboTab-social" class="screen tab-screen hidden">
+            <div class="combo-sub-tabs">
+              <div class="combo-sub-tab active" id="csub-community" onclick="switchComboSub('social','community')">👥
+                Social
+              </div>
+              <div class="combo-sub-tab" id="csub-records" onclick="switchComboSub('social','records')">🏥 Records</div>
+            </div>
+            <div id="comboInner-social-community"></div>
+            <div id="comboInner-social-records" style="display:none">
+              <!-- RECORDS TAB -->
+              <div id="recordsTab" style="padding: 10px; padding-bottom: 90px;">
+                <!-- Premium Header Banner -->
+                <div
+                  style="background: linear-gradient(135deg, var(--orange), var(--red)); border-radius: 20px; padding: 24px 20px; margin-bottom: 20px; color: white; box-shadow: 0 10px 20px rgba(0,0,0,0.1); position: relative; overflow: hidden;">
+                  <div
+                    style="position: absolute; top: -15px; right: -15px; font-size: 8rem; opacity: 0.15; transform: rotate(15deg); user-select: none;">
+                    🏥</div>
+                  <h2 style="font-weight:900; margin: 0 0 5px 0; font-size: 1.8rem; position: relative; z-index: 1;">
+                    Health Records</h2>
+                  <p
+                    style="margin: 0; font-size: 0.95rem; opacity: 0.9; position: relative; z-index: 1; line-height: 1.4;">
+                    Manage your pet's medical history, vet visits, and documents.</p>
+                </div>
+
+                <div class="combo-sub-tabs" style="margin-top: 15px;">
+                  <div class="combo-sub-tab active" id="rsub-history" onclick="switchRecordsSub('history')">💉
+                    Vaccination Record</div>
+                  <div class="combo-sub-tab" id="rsub-reports" onclick="switchRecordsSub('reports')">📄 Medical Reports
+                  </div>
+                </div>
+
+                <!-- Vaccination Record Sub-tab -->
+                <div id="rinner-history">
+                  <button class="btn btn-primary" style="width:100%;margin-bottom:15px;"
+                    onclick="openMedicalRecordModal()">+ Add Record</button>
+                  <div id="medicalRecordsBox"></div>
+                </div>
+
+                <!-- Medical Reports Sub-tab -->
+                <div id="rinner-reports" style="display:none;">
+                  <button class="btn btn-primary" style="width:100%;margin-bottom:15px;"
+                    onclick="openMedicalReportModal()">+ Upload Report</button>
+                  <div id="medicalReportsBox"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ADD/EDIT RECIPE MODAL -->
+          <div id="recipeModal" class="modal-overlay hidden" style="z-index: 10000;">
+            <div class="modal-content" style="max-height:85vh;overflow-y:auto;border-radius:24px;padding:24px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+                <h3 id="recipeModalTitle" style="font-weight:900;color:var(--dark);margin:0">Add Recipe</h3>
+                <button class="close-btn" onclick="closeRecipeModal()"
+                  style="font-size:24px;background:none;border:none;cursor:pointer">✕</button>
+              </div>
+              <input type="hidden" id="editRecipeId" />
+
+              <label>Recipe Name</label>
+              <input id="formRecipeName" type="text" placeholder="e.g. Healthy Salmon Mash" />
+
+              <label>Animal Type</label>
+              <select id="formRecipeAnimal">
+                <option>Dog</option>
+                <option>Cat</option>
+                <option>Hamster</option>
+                <option>Rabbit</option>
+                <option>Bird</option>
+              </select>
+
+              <label>Category</label>
+              <select id="formRecipeCategory">
+                <option value="Meal">Meal</option>
+                <option value="Snack">Snack</option>
+                <option value="Supplement">Supplement</option>
+                <option value="Allergy">Allergy</option>
+                <option value="Budget">Budget</option>
+                <option value="Seasonal">Seasonal</option>
+              </select>
+
+              <label>Suitable Age Group</label>
+              <select id="formRecipeAge">
+                <option value="All">All Ages</option>
+                <option value="Baby">Baby/Puppy/Kitten</option>
+                <option value="Adult">Adult</option>
+                <option value="Senior">Senior</option>
+              </select>
+
+              <label>Difficulty Level</label>
+              <select id="formRecipeDiff">
+                <option>Easy</option>
+                <option>Medium</option>
+                <option>Hard</option>
+              </select>
+
+              <label>Cooking Time</label>
+              <input id="formRecipeTime" type="text" placeholder="e.g. 20 mins" />
+
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <div>
+                  <label>Calories (kcal)</label>
+                  <input id="formRecipeCal" type="number" placeholder="250" />
+                </div>
+                <div>
+                  <label>Protein (g)</label>
+                  <input id="formRecipeProt" type="text" placeholder="15g" />
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+                <div>
+                  <label>Fat (g)</label>
+                  <input id="formRecipeFat" type="text" placeholder="5g" />
+                </div>
+                <div>
+                  <label>Fiber (g)</label>
+                  <input id="formRecipeFib" type="text" placeholder="3g" />
+                </div>
+                <div>
+                  <label>Carbs (g)</label>
+                  <input id="formRecipeCarb" type="text" placeholder="20g" />
+                </div>
+              </div>
+
+              <label>Health Condition Compatibility</label>
+              <input id="formRecipeCondition" type="text" placeholder="e.g. Sensitive Stomach, Kidney Care" />
+
+              <label>Ingredients (comma separated)</label>
+              <textarea id="formRecipeIngredients" placeholder="e.g. Salmon, sweet potato, green beans"
+                style="height:60px"></textarea>
+
+              <label>Preparation Steps (one per line)</label>
+              <textarea id="formRecipeSteps" placeholder="Step 1: Steam the sweet potato&#10;Step 2: Bake the salmon"
+                style="height:80px"></textarea>
+
+              <label>Health Benefits / Vet Tips</label>
+              <input id="formRecipeVetTip" type="text" placeholder="e.g. Rich in Omega-3 fatty acids" />
+
+              <label>Recipe Image</label>
+              <input id="formRecipeImageFile" type="file" accept="image/*" onchange="handleRecipeImageUpload(event)"
+                style="padding:8px" />
+              <input id="formRecipeImage" type="hidden" />
+              <div id="formRecipeImagePreview" style="margin-top:8px; display:none;">
+                <img id="formRecipeImagePreviewImg" src=""
+                  style="max-height:100px; border-radius:12px; object-fit:cover" />
+              </div>
+
+              <div style="display:flex;align-items:center;gap:8px;margin:12px 0">
+                <input id="formRecipeVetApproved" type="checkbox" style="width:auto;margin:0" />
+                <label for="formRecipeVetApproved" style="margin:0;cursor:pointer">🩺 Mark as Vet Approved</label>
+              </div>
+
+              <button class="primary-btn" onclick="saveRecipeForm()">Save Recipe</button>
+            </div>
+          </div>
+
+          <!-- PLANNER ASSIGN MODAL -->
+          <div id="plannerModal" class="modal-overlay hidden" style="z-index: 10000;"
+            onclick="document.getElementById('plannerModal').classList.add('hidden')">
+            <div class="modal-content" onclick="event.stopPropagation()"
+              style="max-height:85vh;overflow-y:auto;border-radius:24px;padding:24px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+                <h3 style="font-weight:900;color:var(--dark);margin:0">Assign Recipe to Meal Plan</h3>
+                <button class="close-btn" onclick="document.getElementById('plannerModal').classList.add('hidden')"
+                  style="font-size:24px;background:none;border:none;cursor:pointer">✕</button>
+              </div>
+              <p class="subtitle" style="margin-bottom:12px">Select a recipe suitable for your pet to assign to this
+                meal slot.</p>
+              <input id="plannerSearch" placeholder="🔍 Search recipes to assign..." oninput="filterPlannerRecipes()"
+                style="margin-bottom:12px;width:100%" />
+              <div id="plannerSelectBox"></div>
+            </div>
+          </div>
+
+          <!-- RECIPE DETAIL MODAL -->
+          <div id="recipeDetailModal" class="modal-overlay hidden" style="z-index: 10000;"
+            onclick="closeRecipeDetailModal()">
+            <div class="modal-content" onclick="event.stopPropagation()"
+              style="max-height:85vh;overflow-y:auto;border-radius:24px;padding:24px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+                <h3 id="modalRecipeName" style="font-weight:900;color:var(--dark);margin:0">Recipe Details</h3>
+                <button class="close-btn" onclick="closeRecipeDetailModal()"
+                  style="font-size:24px;background:none;border:none;cursor:pointer">✕</button>
+              </div>
+              <div id="modalRecipeBody"></div>
+            </div>
+          </div>
+
+          <!-- COMMENTS MODAL -->
+          <div id="commentsModal" class="modal-overlay hidden" style="z-index: 10000;" onclick="closeCommentsModal()">
+            <div class="modal-content" onclick="event.stopPropagation()"
+              style="height:85vh; display:flex; flex-direction:column; overflow:hidden; border-radius:24px; padding:24px; background:var(--bg)">
+              <div
+                style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-shrink:0">
+                <h3 style="font-weight:900;color:var(--dark);margin:0">💬 Comments</h3>
+                <button class="close-btn" onclick="closeCommentsModal()"
+                  style="font-size:24px;background:none;border:none;cursor:pointer;color:var(--dark)">✕</button>
+              </div>
+              <div id="commentsList" style="flex:1; overflow-y:auto; margin-bottom:16px; padding-right:8px;"></div>
+              <div style="display:flex;gap:8px;flex-shrink:0;align-items:flex-end">
+                <textarea id="commentInput" placeholder="Add a comment..." rows="1" autocomplete="off" autocorrect="off"
+                  spellcheck="false" dir="ltr"
+                  onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();document.getElementById('postCommentBtn').click();}"
+                  style="flex:1; border-radius:20px; border:1px solid var(--border); padding:10px 16px; background:var(--card-2); color:var(--text); outline:none; resize:none; font-family:inherit; font-size:14px; line-height:1.4; max-height:80px; overflow-y:auto; -webkit-user-select:text; user-select:text;"></textarea>
+                <button class="primary-btn" id="postCommentBtn"
+                  style="border-radius:20px; padding:10px 20px; flex-shrink:0;">Post</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- DIRECT MESSAGES MODAL -->
+          <div id="dmModal" class="modal-overlay hidden" style="z-index: 10001;" onclick="closeDMModal()">
+            <div class="dm-modal-content" onclick="event.stopPropagation()">
+
+              <!-- Inbox View -->
+              <div id="dmInboxView" style="display:flex; flex-direction:column; height:100%;">
+                <div class="dm-header">
+                  <h3>📩 Direct Messages</h3>
+                  <button class="close-btn" onclick="closeDMModal()"
+                    style="font-size:24px;background:none;border:none;cursor:pointer;color:var(--dark)">✕</button>
+                </div>
+                <div style="padding:16px; border-bottom:1px solid var(--border);">
+                  <button class="dm-new-btn" onclick="showNewDMView()">+ New Message</button>
+                </div>
+                <div id="dmChatList" style="flex:1; overflow-y:auto; padding:12px;"></div>
+              </div>
+
+              <!-- Search View -->
+              <div id="dmSearchView" class="hidden" style="display:flex; flex-direction:column; height:100%;">
+                <div class="dm-header">
+                  <button onclick="backToInbox()"
+                    style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--dark);">←</button>
+                  <h3>New Message</h3>
+                  <div style="width:24px;"></div>
+                </div>
+                <div class="dm-input-area" style="padding-top:16px; padding-bottom:16px;">
+                  <input type="text" id="dmSearchInput" placeholder="Search by username...">
+                  <button class="send-btn" onclick="searchUsers()"
+                    style="border-radius:20px; padding:0 20px; width:auto; height:auto;">Search</button>
+                </div>
+                <div id="dmSearchList" style="flex:1; overflow-y:auto; padding:12px;"></div>
+              </div>
+
+              <!-- Chat View -->
+              <div id="dmChatView" class="hidden" style="display:flex; flex-direction:column; height:100%;">
+                <div class="dm-header">
+                  <button onclick="backToInbox()"
+                    style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--dark);">←</button>
+                  <h3 id="dmChatRecipientName">User</h3>
+                  <div style="width:24px;"></div>
+                </div>
+                <div id="dmMessageList"
+                  style="flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:16px; background:var(--bg);">
+                </div>
+                <div class="dm-input-area">
+                  <input type="text" id="dmInput" placeholder="Message..." autocomplete="off" autocorrect="off"
+                    spellcheck="false" dir="ltr"
+                    style="-webkit-user-select: auto; user-select: auto; transform: translateZ(0);">
+                  <button class="send-btn" onclick="sendDM()">➤</button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- BOTTOM NAV (mobile only) -->
+          <div class="bottom-nav" role="navigation" aria-label="Mobile navigation">
+            <div class="nav-item active" id="nav-home" onclick="openTab('home')" role="button" tabindex="0">
+              <div>🏠</div>Home
+            </div>
+            <div class="nav-item" id="nav-careplanner" onclick="openTab('careplanner')" role="button" tabindex="0">
+              <div>🗓️</div>Planner
+            </div>
+            <div class="nav-item" id="nav-combo-social" onclick="openCombo('social','community')" role="button"
+              tabindex="0">
+              <div>👥</div>Social
+            </div>
+            <div class="nav-item" id="nav-homemade" onclick="openTab('homemade')" role="button" tabindex="0">
+              <div>🍳</div>Food
+            </div>
+            <div class="nav-item" id="nav-ai" onclick="openTab('ai')" role="button" tabindex="0">
+              <div>🤖</div>AI
+            </div>
+          </div><!-- /.bottom-nav -->
+        </div><!-- /.main-content-col -->
+      </div><!-- /.page-wrapper -->
+    </div><!-- /#mainApp -->
 
 
 
 
-  <!-- Supabase client libraries -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="supabaseClient.js"></script>
+    <!-- Supabase client libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabaseClient.js"></script>
 
-  <!-- Chart.js for data visualization -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <!-- Chart.js for data visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
-  <!-- Recipe Database -->
-  <script src="recipes.js"></script>
+    <!-- Recipe Database -->
+    <script src="recipes.js"></script>
 
-  <!-- PawFeed application logic -->
-  <script src="app.js?v=20260726-5"></script>
+    <script src="app2.js"></script>
 
 
 
@@ -1397,13 +1682,13 @@
         <input type="hidden" id="medRecordId" />
         <label>Type</label>
         <select id="medRecordType" class="input">
-            <option value="vaccination">Vaccination</option>
-            <option value="appointment">Vet Appointment</option>
-            <option value="surgery">Surgery / Procedure</option>
-            <option value="illness">Illness / Injury</option>
-            <option value="medication">Medication</option>
-            <option value="lab_test">Lab Test / Bloodwork</option>
-            <option value="other">Other</option>
+          <option value="vaccination">Vaccination</option>
+          <option value="appointment">Vet Appointment</option>
+          <option value="surgery">Surgery / Procedure</option>
+          <option value="illness">Illness / Injury</option>
+          <option value="medication">Medication</option>
+          <option value="lab_test">Lab Test / Bloodwork</option>
+          <option value="other">Other</option>
         </select>
         <label>Title / Vaccine Name</label>
         <input type="text" id="medRecordTitle" class="input" placeholder="e.g. Rabies Vaccine">
@@ -1419,9 +1704,9 @@
         <textarea id="medRecordNotes" class="input" rows="3"></textarea>
         <label>Status</label>
         <select id="medRecordStatus" class="input">
-            <option value="Upcoming">Upcoming</option>
-            <option value="Completed">Completed</option>
-            <option value="Cancelled">Cancelled</option>
+          <option value="Upcoming">Upcoming</option>
+          <option value="Completed">Completed</option>
+          <option value="Cancelled">Cancelled</option>
         </select>
         <div style="display:flex;gap:10px;margin-top:15px">
           <button class="btn btn-secondary" style="flex:1" onclick="closeMedicalRecordModal()">Cancel</button>
@@ -1439,46 +1724,53 @@
         <input type="text" id="medReportTitle" class="input" placeholder="e.g. Blood Test Results">
         <label>Type</label>
         <select id="medReportType" class="input">
-            <option value="Lab Results">Lab Results</option>
-            <option value="Prescription">Prescription</option>
-            <option value="X-Ray">X-Ray</option>
-            <option value="Other">Other</option>
+          <option value="Lab Results">Lab Results</option>
+          <option value="Prescription">Prescription</option>
+          <option value="X-Ray">X-Ray</option>
+          <option value="Other">Other</option>
         </select>
         <label>Notes (Optional)</label>
         <textarea id="medReportNotes" class="input" rows="3"></textarea>
         <label>Select File</label>
         <input type="file" id="medReportFile" class="input" accept="image/*,.pdf" />
-        <div id="medReportUploading" style="display:none; color:var(--primary); font-weight:bold; margin-top:10px; text-align:center;">Uploading... Please wait.</div>
+        <div id="medReportUploading"
+          style="display:none; color:var(--primary); font-weight:bold; margin-top:10px; text-align:center;">Uploading...
+          Please wait.</div>
         <div style="display:flex;gap:10px;margin-top:15px">
           <button class="btn btn-secondary" style="flex:1" onclick="closeMedicalReportModal()">Cancel</button>
-          <button class="btn btn-primary" style="flex:1" id="medReportSaveBtn" onclick="uploadMedicalReport()">Upload</button>
+          <button class="btn btn-primary" style="flex:1" id="medReportSaveBtn"
+            onclick="uploadMedicalReport()">Upload</button>
         </div>
       </div>
     </div>
 
 
-  <!-- UPDATE PASSWORD MODAL (From Deep Link) -->
-  <div id="updatePasswordModal" class="modal-overlay hidden" style="z-index:999999;">
-    <div class="modal-content" style="max-width:350px">
-      <div class="modal-header">
-        <h3 style="margin:0">🔒 Set New Password</h3>
-        <button class="close-btn" onclick="closeUpdatePasswordModal()">✕</button>
-      </div>
-      <div style="padding:20px 0">
-        <p class="subtitle" style="margin-top:0;margin-bottom:15px;font-size:14px;">Enter your new password below.</p>
-        <div class="input-group">
-          <label>New Password</label>
-          <input type="password" id="updatePasswordInput" placeholder="At least 8 characters">
+    <!-- UPDATE PASSWORD MODAL (From Deep Link) -->
+    <div id="updatePasswordModal" class="modal-overlay hidden" style="z-index:999999;">
+      <div class="modal-content" style="max-width:350px">
+        <div class="modal-header">
+          <h3 style="margin:0">🔒 Set New Password</h3>
+          <button class="close-btn" onclick="closeUpdatePasswordModal()">✕</button>
         </div>
-        <div class="input-group">
-          <label>Confirm Password</label>
-          <input type="password" id="updatePasswordConfirmInput" placeholder="Must match">
+        <div style="padding:20px 0">
+          <p class="subtitle" style="margin-top:0;margin-bottom:15px;font-size:14px;">Enter your new password below.</p>
+          <div class="input-group">
+            <label>New Password</label>
+            <input type="password" id="updatePasswordInput" placeholder="At least 8 characters">
+          </div>
+          <div class="input-group">
+            <label>Confirm Password</label>
+            <input type="password" id="updatePasswordConfirmInput" placeholder="Must match">
+          </div>
+          <div id="updatePasswordError"
+            style="color:var(--red);font-size:13px;font-weight:600;margin-bottom:15px;display:none;"></div>
+          <button class="primary-btn" id="updatePasswordBtn" onclick="submitNewPassword()"
+            style="width:100%;margin-bottom:10px">Update Password</button>
+          <button class="secondary-btn" style="width:100%" onclick="closeUpdatePasswordModal()">Cancel & Log
+            Out</button>
         </div>
-        <p id="updatePasswordError" style="color:var(--danger);font-size:13px;font-weight:600;margin:5px 0 10px 0;text-align:center;display:none;"></p>
-        <button id="updatePasswordSubmitBtn" class="primary-btn" style="margin-top:10px;width:100%" onclick="submitNewPassword()">Update Password</button>
       </div>
     </div>
-  </div>
 </body>
 
 </html>

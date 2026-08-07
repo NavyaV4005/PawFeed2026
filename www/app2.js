@@ -69,9 +69,14 @@ const USE_SUPABASE_ONLY = true;
     };
     const PET_ICONS = { Dog: '🐶', Cat: '🐱', Rabbit: '🐰', Bird: '🦜', Fish: '🐟', Hamster: '🐹' };
 
-    let reminderTimers = [];
-    let activeTrackerPet = 0;
-    let selectedPlannerDateStr = new Date().toISOString().slice(0, 10);
+    function getTodayPlannerDateStr() {
+      const d = new Date();
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+    let selectedPlannerDateStr = getTodayPlannerDateStr();
 
     let TOXIC_FOODS = [];
     let NUTRITION_GUIDELINES = {};
@@ -251,6 +256,10 @@ const USE_SUPABASE_ONLY = true;
     // On Vercel (or any production host), use same-origin /api/* rewrites.
     // Locally, fall back to the dev server on port 5000.
     const API_BASE_URL = (
+      window.Capacitor ||
+      window.location.protocol === 'capacitor:' ||
+      (window.location.hostname === 'localhost' && !window.location.port)
+    ) ? 'https://pawfeedmobile.onrender.com' : (
       window.location.hostname === 'localhost' ||
       window.location.hostname.startsWith('192.168') ||
       window.location.hostname.startsWith('10.')
@@ -259,6 +268,7 @@ const USE_SUPABASE_ONLY = true;
     let currentUser = null;
     let currentHouseholdId = null;
     let activePlanPet = 0;
+    let activeTrackerPet = 0;
     let _dummyPurgedThisSession = false;
     let pawCache = {
       pets: [],
@@ -290,8 +300,65 @@ const USE_SUPABASE_ONLY = true;
         Sun: { breakfast: null, lunch: null, dinner: null }
       },
       dailyChecklist: {},
-      tasks: []
+      tasks: [],
+      medicalRecords: [],
+      medicalReports: [],
+      userAvatarUrl: null
     };
+
+    function resetPawCache() {
+      pawCache.pets = [];
+      pawCache.logs = [];
+      pawCache.stockItems = [];
+      pawCache.expenses = [];
+      pawCache.communityPosts = [];
+      pawCache.cart = [];
+      pawCache.scanHistory = [];
+      pawCache.orders = [];
+      pawCache.recipes = { favorites: [], saved: [], recent: [], reviews: [], weekly: [], shopping: [], reactions: [] };
+      pawCache.moodLog = [];
+      pawCache.meds = [];
+      pawCache.vetLog = [];
+      pawCache.sleepLog = [];
+      pawCache.gallery = {};
+      pawCache.weightHistory = {};
+      pawCache.deletedRecipes = [];
+      pawCache.customRecipes = [];
+      pawCache.editedRecipes = {};
+      pawCache.recipeFavorites = [];
+      pawCache.weeklyPlan = {
+        Mon: { breakfast: null, lunch: null, dinner: null },
+        Tue: { breakfast: null, lunch: null, dinner: null },
+        Wed: { breakfast: null, lunch: null, dinner: null },
+        Thu: { breakfast: null, lunch: null, dinner: null },
+        Fri: { breakfast: null, lunch: null, dinner: null },
+        Sat: { breakfast: null, lunch: null, dinner: null },
+        Sun: { breakfast: null, lunch: null, dinner: null }
+      };
+      pawCache.dailyChecklist = {};
+      pawCache.tasks = [];
+      pawCache.medicalRecords = [];
+      pawCache.medicalReports = [];
+      pawCache.userAvatarUrl = null;
+      pawCache.activePetIdx = 0;
+    }
+
+    function initRealtimeSubscriptions() {
+      if (!window.supabaseClient || !currentUser) return;
+      if (window._pawfeedChannel) {
+        try { window.supabaseClient.removeChannel(window._pawfeedChannel); } catch(e) {}
+      }
+      const householdId = currentHouseholdId || currentUser.id;
+      const channel = window.supabaseClient.channel('realtime_user_data_' + currentUser.id);
+      
+      channel.on('postgres_changes', { event: '*', schema: 'public', filter: `household_id=eq.${householdId}` }, async (payload) => {
+        console.log('[PawFeed Realtime] Data change detected in cloud:', payload.table);
+        await fetchAllDataFromSupabase();
+        refreshAllUI();
+      }).subscribe();
+      
+      window._pawfeedChannel = channel;
+    }
 
     function loadLocalCache() {
       try {
@@ -343,12 +410,17 @@ const USE_SUPABASE_ONLY = true;
       showToast("Syncing with cloud... ☁️");
       
       try {
-        // First get the household ID
+        // First get the household ID and user profile data
         const { data: profileData } = await window.supabaseClient.from('user_profiles').select('*').eq('id', userId).maybeSingle();
-        if (profileData && profileData.household_id) {
-          currentHouseholdId = profileData.household_id;
+        if (profileData) {
+          if (profileData.household_id) currentHouseholdId = profileData.household_id;
+          else currentHouseholdId = userId;
+          if (profileData.avatar_url) pawCache.userAvatarUrl = profileData.avatar_url;
         } else {
-          currentHouseholdId = userId; // Fallback to user_id if migration not fully complete
+          currentHouseholdId = userId;
+        }
+        if (!pawCache.userAvatarUrl && currentUser && currentUser.user_metadata && currentUser.user_metadata.avatar_url) {
+          pawCache.userAvatarUrl = currentUser.user_metadata.avatar_url;
         }
         
         // Render it in Profile tab
@@ -357,21 +429,24 @@ const USE_SUPABASE_ONLY = true;
 
         const [
           petsRes, logsRes, stockRes, expensesRes, postsRes, tasksRes,
-          moodsRes, medsRes, vetsRes, sleepsRes, galleryRes, weightsRes, recipesRes
+          moodsRes, medicalRecordsRes, medicalReportsRes, sleepsRes, galleryRes, weightsRes, recipesRes,
+          medsRes, vetLogsRes
         ] = await Promise.all([
-          window.supabaseClient.from('pets').select('*').eq('household_id', currentHouseholdId),
-          window.supabaseClient.from('feeding_logs').select('*').eq('household_id', currentHouseholdId),
-          window.supabaseClient.from('stock_items').select('*').eq('household_id', currentHouseholdId),
-          window.supabaseClient.from('expenses').select('*').eq('household_id', currentHouseholdId),
+          window.supabaseClient.from('pets').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
+          window.supabaseClient.from('feeding_logs').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
+          window.supabaseClient.from('stock_items').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
+          window.supabaseClient.from('expenses').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
           window.supabaseClient.from('community_posts').select('*').order('id', { ascending: false }),
-          window.supabaseClient.from('care_tasks').select('*').eq('household_id', currentHouseholdId),
-          window.supabaseClient.from('mood_logs').select('*').eq('household_id', currentHouseholdId),
-          window.supabaseClient.from('medical_records').select('*').eq('household_id', currentHouseholdId),
-          window.supabaseClient.from('medical_reports').select('*').eq('household_id', currentHouseholdId),
-          window.supabaseClient.from('sleep_logs').select('*').eq('household_id', currentHouseholdId),
-          window.supabaseClient.from('pet_gallery').select('*').eq('household_id', currentHouseholdId),
-          window.supabaseClient.from('weight_history').select('*').eq('household_id', currentHouseholdId),
-          window.supabaseClient.from('custom_recipes').select('*').eq('household_id', currentHouseholdId)
+          window.supabaseClient.from('care_tasks').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
+          window.supabaseClient.from('mood_logs').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
+          window.supabaseClient.from('medical_records').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
+          window.supabaseClient.from('medical_reports').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
+          window.supabaseClient.from('sleep_logs').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
+          window.supabaseClient.from('pet_gallery').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
+          window.supabaseClient.from('weight_history').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
+          window.supabaseClient.from('custom_recipes').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
+          window.supabaseClient.from('meds').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
+          window.supabaseClient.from('vet_logs').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`)
         ]);
 
         const profileRes = { data: profileData };
@@ -472,14 +547,45 @@ const USE_SUPABASE_ONLY = true;
           });
         }
 
-        if (medsRes.data && medsRes.data.length > 0) {
-          pawCache.medicalRecords = medsRes.data;
+        if (medicalRecordsRes.data && medicalRecordsRes.data.length > 0) {
+          pawCache.medicalRecords = medicalRecordsRes.data;
         } else if (profileRes.data && profileRes.data.settings && profileRes.data.settings.medical_records) {
           // Restore from fallback if main table failed or is empty
           pawCache.medicalRecords = profileRes.data.settings.medical_records;
         }
-        if (vetsRes.data) {
-          pawCache.medicalReports = vetsRes.data;
+        if (medicalReportsRes.data) {
+          pawCache.medicalReports = medicalReportsRes.data;
+        }
+
+        if (medsRes.data) {
+          pawCache.meds = medsRes.data.map(m => ({
+            id: m.id,
+            petIdx: 0,
+            petName: 'General',
+            name: m.name,
+            dose: m.dosage || '',
+            time: m.frequency || '',
+            notes: '',
+            active: true
+          }));
+        }
+
+        if (vetLogsRes.data) {
+          pawCache.vetLog = vetLogsRes.data.map(v => {
+            const petIdx = pawCache.pets.findIndex(p => p.id === v.pet_id);
+            const notesParts = (v.notes || '').split('\n');
+            const reason = notesParts[0] || 'Checkup';
+            const notes = notesParts.slice(1).join('\n');
+            return {
+              id: v.id,
+              petIdx: petIdx >= 0 ? petIdx : 0,
+              petName: pawCache.pets[petIdx]?.name || 'General',
+              date: v.date,
+              clinic: v.clinic || '',
+              reason: reason,
+              notes: notes
+            };
+          });
         }
 
         if (sleepsRes.data) {
@@ -500,7 +606,13 @@ const USE_SUPABASE_ONLY = true;
             const petIdx = pawCache.pets.findIndex(p => p.id === g.pet_id);
             const idxKey = petIdx >= 0 ? petIdx : 0;
             if (!pawCache.gallery[idxKey]) pawCache.gallery[idxKey] = [];
-            pawCache.gallery[idxKey].push({ image: g.image_url, time: g.created_at });
+            pawCache.gallery[idxKey].push({
+              id: g.id,
+              src: g.image_url,
+              image: g.image_url,
+              date: g.created_at ? g.created_at.slice(0, 10) : '',
+              time: g.created_at
+            });
           });
         }
 
@@ -517,11 +629,29 @@ const USE_SUPABASE_ONLY = true;
         if (recipesRes.data) {
           pawCache.customRecipes = recipesRes.data.map(r => ({
             id: r.id,
+            title: r.name,
             name: r.name,
-            ingredients: r.ingredients,
-            steps: r.steps,
-            notes: r.notes
+            ingredients: r.ingredients || [],
+            steps: r.steps || [],
+            notes: r.notes || '',
+            pet: ['Dog'],
+            type: 'Veg',
+            cat: 'Meal',
+            time: 15,
+            cookTime: '15 mins',
+            diff: 'Easy',
+            cal: 100,
+            protein: 10,
+            fat: 5,
+            fiber: 2,
+            carbohydrates: 20,
+            suitableAgeGroup: 'All',
+            healthConditionCompatibility: 'Healthy',
+            vetTip: '',
+            vet: false,
+            benefits: ['Nutritious home-cooked food.']
           }));
+          (!USE_SUPABASE_ONLY && localStorage.setItem('pawfeed_custom_recipes', JSON.stringify(pawCache.customRecipes)));
         }
 
         if (profileRes.data) {
@@ -597,6 +727,8 @@ const USE_SUPABASE_ONLY = true;
           };
           if (typeof saveWeeklyPlan === 'function') saveWeeklyPlan(pawCache.weeklyPlan);
         }
+
+        initRealtimeSubscriptions();
 
       } catch (err) {
         console.error("Error fetching all data from Supabase:", err);
@@ -830,6 +962,20 @@ const USE_SUPABASE_ONLY = true;
         }
         for (let i = 0; i < pets.length; i++) {
           const p = pets[i];
+          if (p.avatar && p.avatar.startsWith('data:image/')) {
+            try {
+              const res = await fetch(p.avatar);
+              const blob = await res.blob();
+              const fileName = `${userId}/pet_${userId}_${Date.now()}_${i}.png`;
+              const { error: upErr } = await window.supabaseClient.storage.from('pet-avatars').upload(fileName, blob, { cacheControl: '3600', upsert: true });
+              if (!upErr) {
+                const { data: pubUrl } = window.supabaseClient.storage.from('pet-avatars').getPublicUrl(fileName);
+                if (pubUrl && pubUrl.publicUrl) p.avatar = pubUrl.publicUrl;
+              }
+            } catch(e) {
+              console.warn("Pet avatar base64 upload failed:", e);
+            }
+          }
           // Only include columns that actually exist in the pets table schema
           const payload = {
             user_id: userId,
@@ -1402,6 +1548,7 @@ const USE_SUPABASE_ONLY = true;
         }
 
         currentUser = data.user;
+        resetPawCache();
         localStorage.setItem('pawfeedCurrentUser', JSON.stringify(currentUser));
         if (window.initPushNotifications) window.initPushNotifications(currentUser.id);
         await fetchAllDataFromSupabase();
@@ -1435,6 +1582,8 @@ const USE_SUPABASE_ONLY = true;
           console.error("Signout error", e);
         }
         currentUser = null;
+        currentHouseholdId = null;
+        resetPawCache();
         localStorage.clear();
         location.reload();
       }, 'Logout');
@@ -1589,13 +1738,18 @@ const USE_SUPABASE_ONLY = true;
       document.getElementById('profileName').value = user.name || '';
       document.getElementById('profileEmail').value = user.email || '';
 
-      // Load user avatar
-      const avatar = (USE_SUPABASE_ONLY ? null : localStorage.getItem('pawUserAvatar'));
+      // Load user avatar from cloud cache or fallback
+      const avatar = pawCache.userAvatarUrl || 
+                     (currentUser && currentUser.user_metadata ? currentUser.user_metadata.avatar_url : null) || 
+                     (USE_SUPABASE_ONLY ? null : localStorage.getItem('pawUserAvatar'));
       const preview = document.getElementById('userAvatarPreview');
       const topCircle = document.getElementById('topProfileCircle');
       if (avatar) {
-        preview.innerHTML = `<img src="${avatar}" alt="avatar">`;
-        topCircle.innerHTML = `<img src="${avatar}" alt="avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+        if (preview) preview.innerHTML = `<img src="${avatar}" alt="avatar">`;
+        if (topCircle) topCircle.innerHTML = `<img src="${avatar}" alt="avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+      } else {
+        if (preview) preview.innerHTML = `<span style="font-size:2.5rem;color:var(--primary)">👤</span>`;
+        if (topCircle) topCircle.innerHTML = `👤`;
       }
     }
 
@@ -1680,6 +1834,7 @@ const USE_SUPABASE_ONLY = true;
         const reader = new FileReader();
         reader.onload = function(e) {
           const data = e.target.result;
+          pawCache.userAvatarUrl = data;
           localStorage.setItem('pawUserAvatar', data);
           document.getElementById('userAvatarPreview').innerHTML = `<img src="${data}" alt="avatar">`;
           document.getElementById('topProfileCircle').innerHTML = `<img src="${data}" alt="avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
@@ -1692,28 +1847,36 @@ const USE_SUPABASE_ONLY = true;
       showToast('Uploading avatar... ⏳');
       const userId = currentUser.id;
       const fileExt = file.name.split('.').pop();
-      const fileName = `user_${userId}_${Date.now()}.${fileExt}`;
+      const fileName = `${userId}/user_${userId}_${Date.now()}.${fileExt}`;
       
       try {
         const { error: uploadError } = await window.supabaseClient.storage
-          .from('avatars')
+          .from('pet-avatars')
           .upload(fileName, file, { cacheControl: '3600', upsert: false });
 
         if (uploadError) throw uploadError;
 
         const { data: publicUrlData } = window.supabaseClient.storage
-          .from('avatars')
+          .from('pet-avatars')
           .getPublicUrl(fileName);
 
         const avatarUrl = publicUrlData.publicUrl;
+        pawCache.userAvatarUrl = avatarUrl;
 
         await window.supabaseClient.from('user_profiles').upsert({
           id: userId,
           avatar_url: avatarUrl
         });
 
-        document.getElementById('userAvatarPreview').innerHTML = `<img src="${avatarUrl}" alt="avatar">`;
-        document.getElementById('topProfileCircle').innerHTML = `<img src="${avatarUrl}" alt="avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+        if (currentUser) {
+          if (!currentUser.user_metadata) currentUser.user_metadata = {};
+          currentUser.user_metadata.avatar_url = avatarUrl;
+        }
+
+        const preview = document.getElementById('userAvatarPreview');
+        const topCircle = document.getElementById('topProfileCircle');
+        if (preview) preview.innerHTML = `<img src="${avatarUrl}" alt="avatar">`;
+        if (topCircle) topCircle.innerHTML = `<img src="${avatarUrl}" alt="avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
         (!USE_SUPABASE_ONLY && localStorage.setItem('pawUserAvatar', avatarUrl));
         showToast('Profile photo updated! ✅');
 
@@ -1819,17 +1982,17 @@ const USE_SUPABASE_ONLY = true;
       showToast('Uploading pet avatar... ⏳');
       const userId = currentUser.id;
       const fileExt = file.name.split('.').pop();
-      const fileName = `pet_${userId}_${Date.now()}.${fileExt}`;
+      const fileName = `${userId}/pet_${userId}_${Date.now()}.${fileExt}`;
       
       try {
         const { error: uploadError } = await window.supabaseClient.storage
-          .from('avatars')
+          .from('pet-avatars')
           .upload(fileName, file, { cacheControl: '3600', upsert: false });
 
         if (uploadError) throw uploadError;
 
         const { data: publicUrlData } = window.supabaseClient.storage
-          .from('avatars')
+          .from('pet-avatars')
           .getPublicUrl(fileName);
 
         const avatarUrl = publicUrlData.publicUrl;
@@ -2047,10 +2210,16 @@ const USE_SUPABASE_ONLY = true;
       }
 
       if (type === 'mood') {
+        const today = todayStr();
+        const todayMoods = getLog().filter(e => e.petIdx === activeIdx && e.type === 'mood' && (e.timestamp.slice(0, 10) === today || e.timestamp.startsWith(today)));
+        if (todayMoods.length >= 3) {
+          showToast("Daily mood limit reached (3/3). You can record your pet's mood again tomorrow.", 4000);
+          return;
+        }
         entry.mood = selectedLogMood;
         if (pet) {
           pets[activeIdx].moodToday = selectedLogMood;
-          pets[activeIdx].moodDate = todayStr();
+          pets[activeIdx].moodDate = today;
           savePets(pets);
         }
       }
@@ -2101,19 +2270,35 @@ const USE_SUPABASE_ONLY = true;
       if (!pet) return;
 
       const today = todayStr();
-      if (pet.waterDate !== today) { pet.waterDrops = []; pet.waterDate = today; }
+      if (pet.waterDate !== today) { 
+        pet.waterDrops = []; 
+        pet.waterToday = 0;
+        pet.waterDate = today; 
+      }
       pet.waterDrops = pet.waterDrops || [];
 
-      const isActive = pet.waterDrops.includes(dropIdx);
-      if (isActive) {
-        pet.waterDrops = pet.waterDrops.filter(d => d !== dropIdx);
-      } else {
+      const currentCount = pet.waterDrops.length;
+      if (dropIdx === currentCount) {
+        // Logging the NEXT drop in sequence
         pet.waterDrops.push(dropIdx);
-        // Log water event
+        pet.waterToday = pet.waterDrops.length;
+        pet.waterDate = today;
         const log = getLog();
-        log.unshift({ id: Date.now(), type: 'water', note: 'Water portion logged', timestamp: new Date().toISOString(), petName: pet.name, petIdx });
+        log.unshift({ id: Date.now(), type: 'water', note: `Water portion logged (${pet.waterToday} drops)`, timestamp: new Date().toISOString(), petName: pet.name, petIdx });
         if (log.length > 200) log.splice(200);
         saveLog(log);
+        showToast(`Water drop ${dropIdx + 1} logged! 💧`);
+      } else if (dropIdx === currentCount - 1) {
+        // Undoing the LAST logged drop
+        pet.waterDrops.pop();
+        pet.waterToday = pet.waterDrops.length;
+        pet.waterDate = today;
+        showToast(`Water drop ${dropIdx + 1} removed 💧`);
+      } else {
+        // User clicked out of order
+        const nextNum = currentCount + 1;
+        showToast(`Please log water drops in order! Tap Drop ${nextNum}`);
+        return;
       }
       savePets(pets);
       refreshAllUI();
@@ -2169,7 +2354,7 @@ const USE_SUPABASE_ONLY = true;
     function closeLightbox() { document.getElementById('lightbox').classList.add('hidden'); }
 
     // ==================== STREAK LOGIC ====================
-    function todayStr() { return new Date().toISOString().slice(0, 10); }
+    function todayStr() { return getTodayPlannerDateStr(); }
 
     function calculateStreak() {
       const log = getLog();
@@ -2464,6 +2649,12 @@ const USE_SUPABASE_ONLY = true;
     }
 
     function addPlannerTask() {
+      const todayStr = getTodayPlannerDateStr();
+      if (selectedPlannerDateStr !== todayStr) {
+        showToast('You can only add or edit tasks for today.');
+        return;
+      }
+
       const titleInput = document.getElementById('addTaskTitle');
       const dtInput = document.getElementById('addTaskDateTime');
       const repeatInput = document.getElementById('addTaskRepeat');
@@ -2480,6 +2671,10 @@ const USE_SUPABASE_ONLY = true;
       }
       if (!dateTime) {
         showToast('Please choose a date and time');
+        return;
+      }
+      if (dateTime.slice(0, 10) !== todayStr) {
+        showToast('You can only add or edit tasks for today.');
         return;
       }
 
@@ -2509,6 +2704,11 @@ const USE_SUPABASE_ONLY = true;
     }
 
     function deletePlannerTask(id) {
+      if (selectedPlannerDateStr !== getTodayPlannerDateStr()) {
+        showToast('You can only add or edit tasks for today.');
+        return;
+      }
+
       showConfirm('Delete Task?', 'Are you sure you want to remove this task from the care plan?', () => {
         let tasks = getCareTasks();
         tasks = tasks.filter(t => String(t.id) !== String(id));
@@ -2527,6 +2727,10 @@ const USE_SUPABASE_ONLY = true;
     };
 
     async function completePlannerTask(taskId, dateStr) {
+      if (dateStr !== getTodayPlannerDateStr()) {
+        showToast('You can only add or edit tasks for today.');
+        return;
+      }
 
       const tasks = getCareTasks();
       const task = tasks.find(t => String(t.id) === String(taskId));
@@ -2626,6 +2830,10 @@ const USE_SUPABASE_ONLY = true;
     }
 
     async function uncompletePlannerTask(taskId, dateStr) {
+      if (dateStr !== getTodayPlannerDateStr()) {
+        showToast('You can only add or edit tasks for today.');
+        return;
+      }
 
       const tasks = getCareTasks();
       const task = tasks.find(t => String(t.id) === String(taskId));
@@ -2661,6 +2869,11 @@ const USE_SUPABASE_ONLY = true;
     }
 
     function openRescheduleModal(taskId, taskTitle) {
+      if (selectedPlannerDateStr !== getTodayPlannerDateStr()) {
+        showToast('You can only add or edit tasks for today.');
+        return;
+      }
+
       const elTaskId = document.getElementById('rescheduleTaskId');
       const elTitle = document.getElementById('rescheduleTaskTitle');
       const elDateTime = document.getElementById('rescheduleDateTime');
@@ -2682,6 +2895,10 @@ const USE_SUPABASE_ONLY = true;
     }
 
     async function saveRescheduleTask() {
+      if (selectedPlannerDateStr !== getTodayPlannerDateStr()) {
+        showToast('You can only add or edit tasks for today.');
+        return;
+      }
       const taskId = document.getElementById('rescheduleTaskId').value;
       const dtInput = document.getElementById('rescheduleDateTime').value;
       if (!dtInput) {
@@ -2766,7 +2983,7 @@ const USE_SUPABASE_ONLY = true;
 
         const tasks = getCareTasks();
         const petTasks = tasks.filter(t => t.petIdx === activeIdx);
-        const today = new Date().toISOString().slice(0, 10);
+        const today = getTodayPlannerDateStr();
 
         for (let day = 1; day <= daysInMonth; day++) {
           const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -2815,19 +3032,42 @@ const USE_SUPABASE_ONLY = true;
         progressBar.style.width = `${pct}%`;
       }
 
-      const isTodayPlanner = selectedPlannerDateStr === new Date().toISOString().slice(0, 10);
+      const isTodayPlanner = selectedPlannerDateStr === getTodayPlannerDateStr();
+
+      // Form locking logic
+      const lockNotice = document.getElementById('addTaskLockNotice');
+      if (lockNotice) lockNotice.style.display = isTodayPlanner ? 'none' : 'flex';
+
+      const presetSel = document.getElementById('addTaskPreset');
+      const titleInp = document.getElementById('addTaskTitle');
+      const repeatSel = document.getElementById('addTaskRepeat');
+      const remToggle = document.getElementById('addTaskReminderToggle');
+      const addBtn = document.getElementById('addPlannerTaskBtn');
+
+      if (presetSel) presetSel.disabled = !isTodayPlanner;
+      if (titleInp) titleInp.disabled = !isTodayPlanner;
+      if (dtInput) dtInput.disabled = !isTodayPlanner;
+      if (repeatSel) repeatSel.disabled = !isTodayPlanner;
+      if (remToggle) {
+        remToggle.style.opacity = isTodayPlanner ? '1' : '0.5';
+        remToggle.style.pointerEvents = isTodayPlanner ? 'auto' : 'none';
+      }
+      if (addBtn) {
+        addBtn.disabled = !isTodayPlanner;
+        addBtn.style.opacity = isTodayPlanner ? '1' : '0.5';
+        addBtn.style.cursor = isTodayPlanner ? 'pointer' : 'not-allowed';
+      }
+
       const pendingHeader = document.getElementById('plannerPendingHeader');
-      if (pendingHeader) pendingHeader.innerHTML = isTodayPlanner ? "📋 Today's Tasks" : "📋 Tasks for Selected Date";
+      if (pendingHeader) pendingHeader.innerHTML = isTodayPlanner ? "📋 Today's Tasks" : "📋 Tasks for Selected Date <span style='font-size:13px;font-weight:700;color:var(--muted);margin-left:6px;'>(🔒 Locked - Read Only)</span>";
       const completedHeader = document.getElementById('plannerCompletedHeader');
-      if (completedHeader) completedHeader.innerHTML = isTodayPlanner ? "✅ Completed Today" : "✅ Completed on Selected Date";
-      
+      if (completedHeader) completedHeader.innerHTML = isTodayPlanner ? "✅ Completed Today" : "✅ Completed on Selected Date <span style='font-size:13px;font-weight:700;color:var(--muted);margin-left:6px;'>(🔒 Locked - Read Only)</span>";
 
       // Render checklists
       const incompleteSection = document.getElementById('plannerIncompleteSection');
       const incompleteList = document.getElementById('plannerIncompleteList');
       const pendingList = document.getElementById('plannerPendingList');
       const completedList = document.getElementById('plannerCompletedList');
-
 
       const allPending = dayTasks.filter(t => !(t.completedDates && t.completedDates.includes(selectedPlannerDateStr)));
       
@@ -2865,7 +3105,8 @@ const USE_SUPABASE_ONLY = true;
            incompleteList.innerHTML = incompletePending.map(t => {
             const timeStr = formatTimeFromDateTime(t.dateTime);
             const repeatLabel = t.repeat !== 'none' ? `<span style="background:var(--pill-bg);color:var(--pill-color);font-size:10px;padding:2px 6px;border-radius:8px;font-weight:800;text-transform:uppercase">${t.repeat}</span>` : '';
-            const deleteBtn = !isDefaultTask(t.title) ? `<button onclick="deletePlannerTask('${t.id}')" style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer;padding:0 4px">✕</button>` : '';
+            const deleteBtn = (isTodayPlanner && !isDefaultTask(t.title)) ? `<button onclick="deletePlannerTask('${t.id}')" style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer;padding:0 4px">✕</button>` : '';
+            const rescheduleBtn = isTodayPlanner ? `<button class="secondary-btn" onclick="openRescheduleModal('${t.id}', '${t.title.replace(/'/g, "\\'")}')" style="margin:0; padding:4px 10px; font-size:12px; color:var(--dark);">Reschedule</button>` : '';
             
             return `
               <div class="card" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;margin:8px 0; border: 1px solid var(--red);">
@@ -2881,7 +3122,7 @@ const USE_SUPABASE_ONLY = true;
                   </div>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px">
-                    <button class="secondary-btn" onclick="openRescheduleModal('${t.id}', '${t.title.replace(/'/g, "\\'")}')" style="margin:0; padding:4px 10px; font-size:12px; color:var(--dark);">Reschedule</button>
+                    ${rescheduleBtn}
                     ${deleteBtn}
                 </div>
               </div>
@@ -2891,7 +3132,6 @@ const USE_SUPABASE_ONLY = true;
       }
 
       const completed = dayTasks.filter(t => t.completedDates && t.completedDates.includes(selectedPlannerDateStr));
-      const upcoming = petTasks.filter(t => t.dateTime.slice(0, 10) > selectedPlannerDateStr && !(t.repeat === 'none' && t.completed));
 
       if (pendingList) {
         if (activePending.length === 0) {
@@ -2900,28 +3140,47 @@ const USE_SUPABASE_ONLY = true;
           pendingList.innerHTML = activePending.map(t => {
             const timeStr = formatTimeFromDateTime(t.dateTime);
             const repeatLabel = t.repeat !== 'none' ? `<span style="background:var(--pill-bg);color:var(--pill-color);font-size:10px;padding:2px 6px;border-radius:8px;font-weight:800;text-transform:uppercase">${t.repeat}</span>` : '';
-            const deleteBtn = !isDefaultTask(t.title) ? `<button onclick="deletePlannerTask('${t.id}')" style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer;padding:0 4px">✕</button>` : '';
+            const deleteBtn = (isTodayPlanner && !isDefaultTask(t.title)) ? `<button onclick="deletePlannerTask('${t.id}')" style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer;padding:0 4px">✕</button>` : '';
 
-            return `
-              <div class="card" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;margin:8px 0">
-                <div style="display:flex;align-items:center;gap:12px">
-                  <input type="checkbox" id="chk_${t.id}" onchange="toggleSubmitBtn('${t.id}')" style="width:20px;height:20px;cursor:pointer;accent-color:var(--orange)" />
-                  <div>
-                    <b style="font-size:15px;color:var(--dark)">${t.title}</b>
-                    <div style="font-size:12px;color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:8px">
-                      <span>🕒 ${timeStr}</span>
-                      ${repeatLabel}
-                      <span>${t.reminder ? '🔔' : ''}</span>
+            if (isTodayPlanner) {
+              return `
+                <div class="card" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;margin:8px 0">
+                  <div style="display:flex;align-items:center;gap:12px">
+                    <input type="checkbox" id="chk_${t.id}" onchange="toggleSubmitBtn('${t.id}')" style="width:20px;height:20px;cursor:pointer;accent-color:var(--orange)" />
+                    <div>
+                      <b style="font-size:15px;color:var(--dark)">${t.title}</b>
+                      <div style="font-size:12px;color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:8px">
+                        <span>🕒 ${timeStr}</span>
+                        ${repeatLabel}
+                        <span>${t.reminder ? '🔔' : ''}</span>
+                      </div>
                     </div>
                   </div>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <button class="secondary-btn" onclick="openRescheduleModal('${t.id}', '${t.title.replace(/'/g, "\\'")}')" style="margin:0; padding:4px 10px; font-size:12px; color:var(--dark);">Reschedule</button>
+                    <button id="btnSubmit_${t.id}" class="primary-btn" onclick="completePlannerTask('${t.id}', '${selectedPlannerDateStr}')" style="display:none;margin:0;padding:4px 10px;font-size:12px">Submit</button>
+                    ${deleteBtn}
+                  </div>
                 </div>
-                <div style="display:flex;align-items:center;gap:8px">
-                  <button class="secondary-btn" onclick="openRescheduleModal('${t.id}', '${t.title.replace(/'/g, "\\'")}')" style="margin:0; padding:4px 10px; font-size:12px; color:var(--dark);">Reschedule</button>
-                  <button id="btnSubmit_${t.id}" class="primary-btn" onclick="completePlannerTask('${t.id}', '${selectedPlannerDateStr}')" style="display:none;margin:0;padding:4px 10px;font-size:12px">Submit</button>
-                  ${deleteBtn}
+              `;
+            } else {
+              return `
+                <div class="card" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;margin:8px 0;opacity:0.85">
+                  <div style="display:flex;align-items:center;gap:12px">
+                    <span style="font-size:16px" title="Locked">🔒</span>
+                    <div>
+                      <b style="font-size:15px;color:var(--dark)">${t.title}</b>
+                      <div style="font-size:12px;color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:8px">
+                        <span>🕒 ${timeStr}</span>
+                        ${repeatLabel}
+                        <span>${t.reminder ? '🔔' : ''}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div style="font-size:12px;color:var(--muted);font-weight:700">🔒 Locked</div>
                 </div>
-              </div>
-            `;
+              `;
+            }
           }).join('');
         }
       }
@@ -2935,11 +3194,13 @@ const USE_SUPABASE_ONLY = true;
             if (t.completedTimesMap && t.completedTimesMap[selectedPlannerDateStr]) {
               timeStr = formatTimeFromDateTime(t.completedTimesMap[selectedPlannerDateStr]);
             }
-            const deleteBtn = !isDefaultTask(t.title) ? `<button onclick="deletePlannerTask('${t.id}')" style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer;padding:0 4px">✕</button>` : '';
+            const deleteBtn = (isTodayPlanner && !isDefaultTask(t.title)) ? `<button onclick="deletePlannerTask('${t.id}')" style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer;padding:0 4px">✕</button>` : '';
+            const chkAttribute = isTodayPlanner ? `onchange="uncompletePlannerTask('${t.id}', '${selectedPlannerDateStr}')"` : `disabled onclick="showToast('You can only add or edit tasks for today.')"`;
+
             return `
               <div class="card" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;margin:8px 0;opacity:0.75;background:var(--success-bg);border:1px solid #B5EAD7">
                 <div style="display:flex;align-items:center;gap:12px">
-                  <input type="checkbox" checked onchange="uncompletePlannerTask('${t.id}', '${selectedPlannerDateStr}')" style="width:20px;height:20px;cursor:pointer;accent-color:var(--orange)" />
+                  <input type="checkbox" checked ${chkAttribute} style="width:20px;height:20px;cursor:${isTodayPlanner ? 'pointer' : 'not-allowed'};accent-color:var(--orange)" />
                   <div>
                     <b style="font-size:15px;color:#1A6A4A;text-decoration:line-through">${t.title}</b>
                     <div style="font-size:12px;color:#1A6A4A;margin-top:2px">
@@ -2953,8 +3214,6 @@ const USE_SUPABASE_ONLY = true;
           }).join('');
         }
       }
-
-
     }
 
     // ==================== REFRESH ALL ====================
@@ -3397,7 +3656,7 @@ const USE_SUPABASE_ONLY = true;
       <div class="planner-right-col">
         <div class="card">
           <h3 style="font-weight:800;margin-bottom:6px">📋 Today's Feedings <span style="color:var(--orange)">(${todayFed.length})</span></h3>
-          ${todayFed.length ? todayFed.map(f => `<div class="log-entry"><div><div class="log-time">${formatTime(f.timestamp)}</div><div class="log-text">${f.note}</div></div><span class="log-badge fed">Fed ✓</span></div>`).join('') : '<p style="color:var(--muted);font-size:13px;padding:8px 0">No feedings logged today yet.</p>'}
+          ${todayFed.length ? todayFed.map(f => `<div class="log-entry"><div><div class="log-time">${formatTime(f.timestamp)}</div><div class="log-text">${escapeHtml(f.note || '')}</div></div><span class="log-badge fed">Fed ✓</span></div>`).join('') : '<p style="color:var(--muted);font-size:13px;padding:8px 0">No feedings logged today yet.</p>'}
         </div>
         <button class="primary-btn" onclick="openLogModal()" style="margin-top:8px; width:100%;">+ Log a Feeding</button>
       </div>
@@ -3409,70 +3668,111 @@ const USE_SUPABASE_ONLY = true;
       const tabs = document.getElementById('trackerPetTabs');
       const box = document.getElementById('trackerBox');
 
-      if (noPet || pets.length === 0) {
+      if (!tabs || !box) return;
+
+      pets = pets || getPets() || [];
+      noPet = typeof noPet === 'boolean' ? noPet : isNoPet();
+
+      if (noPet || !pets || pets.length === 0) {
         tabs.innerHTML = '';
-        box.innerHTML = `<div class="card empty-state"><h3>No pets yet</h3><button class="primary-btn" onclick="openPetModal(-1)">+ Add Pet</button></div>`;
+        box.innerHTML = `
+          <div class="card empty-state" style="text-align:center; padding: 40px 20px;">
+            <div style="font-size:3rem; margin-bottom:10px;">🐾</div>
+            <h3 style="margin-bottom:6px; font-weight:800; color:var(--dark);">No Pets Added Yet</h3>
+            <p style="color:var(--muted); font-size:0.9rem; margin-bottom:16px;">Add your pet to track weight, water intake, mood, and care logs.</p>
+            <button class="primary-btn" onclick="openPetModal(-1)" style="padding:10px 24px; font-size:14px;">+ Add New Pet</button>
+          </div>`;
         return;
       }
 
-      tabs.innerHTML = pets.map((p, i) => `<div class="pet-tab ${i === activeTrackerPet ? 'active' : ''}" onclick="activeTrackerPet=${i};renderTrackerTab(getPets(),getActivePetIdx(),isNoPet())">${PET_ICONS[p.type] || '🐾'} ${p.name}</div>`).join('');
+      if (typeof activeTrackerPet !== 'number' || activeTrackerPet < 0 || activeTrackerPet >= pets.length) {
+        activeTrackerPet = (typeof activeIdx === 'number' && activeIdx >= 0 && activeIdx < pets.length) ? activeIdx : 0;
+      }
+
+      tabs.innerHTML = pets.map((p, i) => `
+        <div class="pet-tab ${i === activeTrackerPet ? 'active' : ''}" onclick="activeTrackerPet=${i}; renderTrackerTab(getPets(), getActivePetIdx(), isNoPet());">
+          ${PET_ICONS[p.type] || '🐾'} ${escapeHtml(p.name || 'Pet')}
+        </div>`).join('');
+
       const pet = pets[activeTrackerPet] || pets[0];
       const petIdx = activeTrackerPet;
       const today = todayStr();
-      const log = getLog();
-      const totalDrops = Math.ceil((pet.waterGoal || 500) / 100);
+      const log = getLog() || [];
+
+      const totalDrops = Math.max(1, Math.ceil((pet.waterGoal || 500) / 100));
       const currentDrops = (pet.waterDate === today ? (pet.waterDrops || []) : []);
       const waterMl = currentDrops.length * 100;
       const waterPct = Math.min(100, Math.round((currentDrops.length / totalDrops) * 100));
 
-      // Mood
       const moodToday = pet.moodDate === today ? pet.moodToday : null;
+      const todayMoodLogs = log.filter(e => Number(e.petIdx) === Number(petIdx) && e.type === 'mood' && (String(e.timestamp || '').slice(0, 10) === today || String(e.timestamp || '').startsWith(today)));
+      const todayMoodCount = todayMoodLogs.length;
 
-      // Weight history
-      const wh = pet.weightHistory || [];
-
-      // Feeding history for this pet (last 14 days)
-      const petLog = log.filter(e => e.petIdx === petIdx);
+      const wh = (pet.weightHistory || []).filter(w => w && typeof w.weight === 'number');
+      const petLog = log.filter(e => Number(e.petIdx) === Number(petIdx));
       const last7days = [];
       for (let i = 6; i >= 0; i--) {
         const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
         last7days.push(d);
       }
 
-      box.innerHTML = `
+      let html = `
     <div class="planner-desktop-grid">
       <div class="planner-left-col">
         <!-- WATER TRACKER -->
         <div class="card">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-            <h3 style="font-weight:900">💧 Water Today</h3>
+            <h3 style="font-weight:900;margin:0">💧 Water Today</h3>
             <span style="font-size:13px;color:var(--muted)">${waterMl}ml / ${pet.waterGoal || 500}ml</span>
           </div>
           <div class="progress-bar-wrap"><div class="progress-bar" style="width:${waterPct}%;background:#A8D8EA"></div></div>
           <div class="water-tracker">
-            ${Array.from({ length: totalDrops }, (_, i) => `
-              <div class="water-drop ${currentDrops.includes(i) ? 'filled' : ''}" onclick="toggleWater(${petIdx},${i})">
+            ${Array.from({ length: totalDrops }, (_, i) => {
+              const isFilled = i < currentDrops.length;
+              const isNext = (i === currentDrops.length);
+              const isUndoable = (i === currentDrops.length - 1);
+              let dropStyle = '';
+              if (isFilled) {
+                dropStyle = isUndoable ? 'cursor:pointer; opacity:1;' : 'cursor:not-allowed; opacity:0.8;';
+              } else if (isNext) {
+                dropStyle = 'cursor:pointer; opacity:1; border:2px solid var(--orange); box-shadow:0 0 8px rgba(255,165,0,0.5); transform:scale(1.1);';
+              } else {
+                dropStyle = 'cursor:not-allowed; opacity:0.35;';
+              }
+              return `
+              <div class="water-drop ${isFilled ? 'filled' : ''}" style="${dropStyle}" onclick="toggleWater(${petIdx},${i})" title="${isFilled ? (isUndoable ? 'Tap to undo Drop ' + (i+1) : 'Drop ' + (i+1) + ' logged') : (isNext ? 'Tap to log Drop ' + (i+1) : 'Drop ' + (i+1) + ' locked')}">
                 <span>💧</span>
-              </div>`).join('')}
+              </div>`;
+            }).join('')}
           </div>
-          <p style="font-size:12px;color:var(--muted)">Tap each drop to log water. Goal: ${pet.waterGoal || 500}ml/day</p>
+          <p style="font-size:12px;color:var(--muted)">Tap drops in sequence (1 → 2 → 3...) to log water. Goal: ${pet.waterGoal || 500}ml/day</p>
         </div>
 
         <!-- MOOD TRACKER -->
         <div class="card">
-          <h3 style="font-weight:900;margin-bottom:8px">😊 Mood Today</h3>
-          ${moodToday ? `<div style="text-align:center;padding:10px 0"><span style="font-size:36px">${moodToday.split(' ')[0]}</span><div style="font-size:14px;font-weight:800;margin-top:6px;color:var(--dark)">${moodToday}</div><div style="font-size:12px;color:var(--muted);margin-top:4px">Mood logged today</div></div>` : '<p style="font-size:13px;color:var(--muted);margin-bottom:10px">How is your pet feeling today?</p>'}
-          <div class="mood-row">
-            <div class="mood-btn ${moodToday === '😄 Happy' ? 'selected' : ''}" onclick="logQuickMood('😄 Happy',${petIdx})"><span class="mood-icon">😄</span>Happy</div>
-            <div class="mood-btn ${moodToday === '😐 Calm' ? 'selected' : ''}" onclick="logQuickMood('😐 Calm',${petIdx})"><span class="mood-icon">😐</span>Calm</div>
-            <div class="mood-btn ${moodToday === '😴 Tired' ? 'selected' : ''}" onclick="logQuickMood('😴 Tired',${petIdx})"><span class="mood-icon">😴</span>Tired</div>
-            <div class="mood-btn ${moodToday === '😟 Sad' ? 'selected' : ''}" onclick="logQuickMood('😟 Sad',${petIdx})"><span class="mood-icon">😟</span>Sad</div>
-            <div class="mood-btn ${moodToday === '😡 Grumpy' ? 'selected' : ''}" onclick="logQuickMood('😡 Grumpy',${petIdx})"><span class="mood-icon">😡</span>Grumpy</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <h3 style="font-weight:900;margin:0">😊 Mood Today</h3>
+            <span style="font-size:12px;font-weight:800;color:${todayMoodCount >= 3 ? '#cf1322' : 'var(--muted)'}">${todayMoodCount} / 3 logged today</span>
           </div>
+          ${moodToday ? `<div style="text-align:center;padding:8px 0"><span style="font-size:36px">${moodToday.split(' ')[0]}</span><div style="font-size:14px;font-weight:800;margin-top:4px;color:var(--dark)">${moodToday}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">Latest mood logged today (${todayMoodCount}/3)</div></div>` : '<p style="font-size:13px;color:var(--muted);margin-bottom:10px">How is your pet feeling today?</p>'}
+          
+          ${todayMoodCount >= 3 ? `
+            <div style="padding:10px 14px;background:rgba(207,19,34,0.08);border:1px solid rgba(207,19,34,0.2);border-radius:12px;text-align:center;font-size:13px;color:#cf1322;font-weight:700;margin-top:6px">
+              🚫 Daily mood limit reached. You can record your pet's mood again tomorrow.
+            </div>
+          ` : `
+            <div class="mood-row">
+              <div class="mood-btn ${moodToday === '😄 Happy' ? 'selected' : ''}" onclick="logQuickMood('😄 Happy',${petIdx})"><span class="mood-icon">😄</span>Happy</div>
+              <div class="mood-btn ${moodToday === '😐 Calm' ? 'selected' : ''}" onclick="logQuickMood('😐 Calm',${petIdx})"><span class="mood-icon">😐</span>Calm</div>
+              <div class="mood-btn ${moodToday === '😴 Tired' ? 'selected' : ''}" onclick="logQuickMood('😴 Tired',${petIdx})"><span class="mood-icon">😴</span>Tired</div>
+              <div class="mood-btn ${moodToday === '😟 Sad' ? 'selected' : ''}" onclick="logQuickMood('😟 Sad',${petIdx})"><span class="mood-icon">😟</span>Sad</div>
+              <div class="mood-btn ${moodToday === '😡 Grumpy' ? 'selected' : ''}" onclick="logQuickMood('😡 Grumpy',${petIdx})"><span class="mood-icon">😡</span>Grumpy</div>
+            </div>
+          `}
         </div>
         
         <!-- MOOD BREAKDOWN CHART -->
-        ${(getLog().filter(e => e.petIdx === petIdx && e.type === 'mood').length > 0) ? `
+        ${(log.filter(e => Number(e.petIdx) === Number(petIdx) && e.type === 'mood').length > 0) ? `
         <div class="card">
           <h3 style="font-weight:900;margin-bottom:12px">📊 Mood Breakdown (Last 30)</h3>
           <div class="chartjs-wrap" style="position:relative;height:200px;width:100%">
@@ -3498,14 +3798,12 @@ const USE_SUPABASE_ONLY = true;
           <span style="font-size:11px;color:var(--muted)">Max: ${Math.max(...wh.map(w => w.weight))} kg</span>
         </div>
         <div style="max-height:130px;overflow-y:auto;margin-top:8px">
-          ${wh.slice().reverse().map(w => `<div class="history-item"><div class="history-icon">⚖️</div><div class="history-text"><b>${w.weight} kg</b><span>${formatDate(w.date)}${w.note ? ' — ' + w.note : ''}</span></div></div>`).join('')}
+          ${wh.slice().reverse().map(w => `<div class="history-item"><div class="history-icon">⚖️</div><div class="history-text"><b>${w.weight} kg</b><span>${formatDate(w.date)}${w.note ? ' — ' + escapeHtml(w.note) : ''}</span></div></div>`).join('')}
         </div>` : '<p style="font-size:13px;color:var(--muted)">No weight entries yet. Log your pet\'s weight to see the chart.</p>'}
     </div>
 
-
-
     <!-- SLEEP CHART -->
-    ${(getSleepLog ? getSleepLog().length > 0 : false) ? `
+    ${(typeof getSleepLog === 'function' && getSleepLog().length > 0) ? `
     <div class="card">
       <h3 style="font-weight:900;margin-bottom:12px">💤 Sleep This Week</h3>
       <div class="chartjs-wrap" style="position:relative;height:160px;width:100%">
@@ -3525,7 +3823,10 @@ const USE_SUPABASE_ONLY = true;
         <button class="small-btn" onclick="openLogModal()">+ Log</button>
       </div>
       ${last7days.map(day => {
-        const dayLogs = petLog.filter(e => e.timestamp.slice(0, 10) === day);
+        const dayLogs = petLog.filter(e => {
+          const ts = String(e.timestamp || '');
+          return ts.slice(0, 10) === day || ts.startsWith(day);
+        });
         if (!dayLogs.length) return `<div class="history-day" style="display:flex; flex-direction:row; align-items:flex-start; gap:20px; border-bottom:1px solid var(--border); padding-bottom:16px; margin-bottom:16px;"><div class="history-day-label" style="width:100px; flex-shrink:0; font-size:14px; font-weight:900; color:var(--dark); margin-top:4px;">${formatDate(day)}</div><div style="font-size:12px;color:var(--muted);padding:6px 0;">No entries</div></div>`;
         
         // Group logs by category
@@ -3539,10 +3840,10 @@ const USE_SUPABASE_ONLY = true;
           <div style="flex:1; display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:16px; align-items:start;">`;
         
         const renderGroup = (logs, title, icon, color) => {
-          if (!logs.length) return '';
+          if (!logs || !logs.length) return '';
           return `<div style="margin-bottom:10px;">
             <div style="font-size:12px;font-weight:800;color:${color};text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;gap:4px;">${icon} ${title}</div>
-            ${logs.map(e => `<div class="history-item" style="margin-bottom:4px;padding:6px;background:var(--bg);border-radius:8px;"><div class="history-icon">${typeIcon(e.type)}</div><div class="history-text"><b>${e.note}</b><span style="font-size:11px;">${formatTime(e.timestamp)}</span></div><span class="log-badge ${e.type}">${e.type === 'fed' ? 'Fed ✓' : e.type === 'water' ? 'Water' : e.type === 'weight' ? e.weight + 'kg' : e.type === 'mood' ? e.mood || 'Mood' : e.type === 'missed' ? 'Missed' : '—'}</span></div>`).join('')}
+            ${logs.map(e => `<div class="history-item" style="margin-bottom:4px;padding:6px;background:var(--bg);border-radius:8px;"><div class="history-icon">${typeIcon(e.type)}</div><div class="history-text"><b>${escapeHtml(e.note || '')}</b><span style="font-size:11px;">${formatTime(e.timestamp)}</span></div><span class="log-badge ${e.type}">${e.type === 'fed' ? 'Fed ✓' : e.type === 'water' ? 'Water' : e.type === 'weight' ? (e.weight || '') + 'kg' : e.type === 'mood' ? e.mood || 'Mood' : e.type === 'missed' ? 'Missed' : '—'}</span></div>`).join('')}
           </div>`;
         };
         
@@ -3555,28 +3856,40 @@ const USE_SUPABASE_ONLY = true;
       }).join('')}
     </div>`;
 
+      box.innerHTML = html;
+
       // Render charts after DOM insert
       setTimeout(() => {
-        if (wh.length > 0) renderWeightChart(wh, petIdx);
-        const moodLog = getLog().filter(e => e.petIdx === petIdx && e.type === 'mood');
-        if (moodLog.length > 0) renderMoodChart(moodLog, petIdx);
+        if (wh.length > 0 && typeof renderWeightChart === 'function') renderWeightChart(wh, petIdx);
+        const moodLog = log.filter(e => Number(e.petIdx) === Number(petIdx) && e.type === 'mood');
+        if (moodLog.length > 0 && typeof renderMoodChart === 'function') renderMoodChart(moodLog, petIdx);
         const sleepLog = typeof getSleepLog === 'function' ? getSleepLog() : (pawCache.sleepLog || []);
-        if (sleepLog.length > 0) renderSleepChart(sleepLog, petIdx);
+        if (sleepLog.length > 0 && typeof renderSleepChart === 'function') renderSleepChart(sleepLog, petIdx);
       }, 80);
     }
 
     function logQuickMood(mood, petIdx) {
       const pets = getPets();
       if (!pets[petIdx]) return;
+      const today = todayStr();
+      const log = getLog();
+
+      const todayMoods = log.filter(e => e.petIdx === petIdx && e.type === 'mood' && (e.timestamp.slice(0, 10) === today || e.timestamp.startsWith(today)));
+
+      if (todayMoods.length >= 3) {
+        showToast("Daily mood limit reached (3/3). You can record your pet's mood again tomorrow.", 4000);
+        return;
+      }
+
       pets[petIdx].moodToday = mood;
-      pets[petIdx].moodDate = todayStr();
+      pets[petIdx].moodDate = today;
       savePets(pets);
 
-      const log = getLog();
       log.unshift({ id: Date.now(), type: 'mood', note: mood, timestamp: new Date().toISOString(), petName: pets[petIdx].name, petIdx, mood });
       saveLog(log);
 
-      showToast('Mood logged: ' + mood + ' ✅');
+      const countNow = todayMoods.length + 1;
+      showToast(`Mood logged (${countNow}/3 today): ${mood} ✅`);
       refreshAllUI();
       openTab('tracker');
     }
@@ -5924,8 +6237,8 @@ const USE_SUPABASE_ONLY = true;
           const rows = d.map(item => ({
             user_id: userId,
             pet_id: petId,
-            image_url: item.image,
-            created_at: item.time || new Date().toISOString()
+            image_url: item.src || item.image,
+            created_at: item.date || item.time || new Date().toISOString()
           }));
           await window.supabaseClient.from('pet_gallery').insert(rows.map(r => ({...r, household_id: currentHouseholdId})));
         }
@@ -6400,7 +6713,43 @@ Use emojis and keep under 150 words.`;
     function saveDeletedRecipes(list) { localStorage.setItem('pawfeed_deleted_recipes', JSON.stringify(list)); }
     def_custom_recipes = [];
     function getCustomRecipes() { return JSON.parse(localStorage.getItem('pawfeed_custom_recipes') || '[]'); }
-    function saveCustomRecipes(list) { localStorage.setItem('pawfeed_custom_recipes', JSON.stringify(list)); }
+    async function saveCustomRecipes(list) {
+      pawCache.customRecipes = list;
+      (!USE_SUPABASE_ONLY && localStorage.setItem('pawfeed_custom_recipes', JSON.stringify(list)));
+      if (!window.supabaseClient || !currentUser) return;
+      const userId = currentUser.id;
+      const householdId = (typeof currentHouseholdId !== 'undefined' && currentHouseholdId) || userId;
+      try {
+        const { data: dbRecipes } = await window.supabaseClient.from('custom_recipes').select('id').eq('user_id', userId);
+        if (dbRecipes) {
+          const activeIds = list.map(r => r.id).filter(id => typeof id === 'number' && id < 10000000000);
+          const deletedIds = dbRecipes.filter(r => !activeIds.includes(r.id)).map(r => r.id);
+          if (deletedIds.length > 0) {
+            await window.supabaseClient.from('custom_recipes').delete().in('id', deletedIds);
+          }
+        }
+        for (let i = 0; i < list.length; i++) {
+          const r = list[i];
+          const payload = {
+            user_id: userId,
+            name: r.title || r.name || 'Custom Recipe',
+            ingredients: r.ingredients || [],
+            steps: r.steps || [],
+            notes: r.notes || ''
+          };
+          if (r.id && typeof r.id === 'number' && r.id < 10000000000) {
+            payload.id = r.id;
+          }
+          const { data, error } = await window.supabaseClient.from('custom_recipes').upsert({...payload, household_id: householdId}).select('id').single();
+          if (!error && data) {
+            r.id = data.id;
+          }
+        }
+        (!USE_SUPABASE_ONLY && localStorage.setItem('pawfeed_custom_recipes', JSON.stringify(list)));
+      } catch (err) {
+        console.error("Error syncing custom recipes to Supabase:", err);
+      }
+    }
     function getEditedRecipes() { return JSON.parse(localStorage.getItem('pawfeed_edited_recipes') || '{}'); }
     function saveEditedRecipes(map) { localStorage.setItem('pawfeed_edited_recipes', JSON.stringify(map)); }
 
@@ -7030,18 +7379,31 @@ Use emojis and keep under 150 words.`;
       try { localStorage.setItem('pawWeeklyPlan', JSON.stringify(plan)); } catch(e){}
       
       if (!window.supabaseClient || !currentUser) return;
-      const householdId = currentHouseholdId || currentUser.id;
+      const userId = currentUser.id;
+      const householdId = (typeof currentHouseholdId !== 'undefined' && currentHouseholdId) || userId;
       
       try {
-        const { error } = await window.supabaseClient.from('weekly_meal_plan').upsert({
-          user_id: currentUser.id,
-          household_id: householdId,
-          plan_json: plan
-        }, { onConflict: 'household_id' });
+        // 1. Primary: Save to user_profiles table (weekly_plan column)
+        const { error: profileErr } = await window.supabaseClient.from('user_profiles').update({
+          weekly_plan: plan
+        }).eq('id', userId);
         
-        if (error) {
-          console.error("Error syncing weekly plan to Supabase:", error);
-          showToast("Failed to save meal plan to cloud.");
+        if (profileErr) {
+          await window.supabaseClient.from('user_profiles').upsert({
+            id: userId,
+            weekly_plan: plan
+          }, { onConflict: 'id' });
+        }
+
+        // 2. Secondary: Save to weekly_meal_plan table if present
+        try {
+          await window.supabaseClient.from('weekly_meal_plan').upsert({
+            user_id: userId,
+            household_id: householdId,
+            plan_json: plan
+          }, { onConflict: 'household_id' });
+        } catch (e) {
+          // Table weekly_meal_plan might not exist in all databases; ignore silently
         }
       } catch (err) {
         console.error("Network error saving weekly plan:", err);
@@ -7099,6 +7461,7 @@ Use emojis and keep under 150 words.`;
       const r = HOME_RECIPES.find(x => x.id === recipeId);
       if (r) {
         plan[activePlannerDay][activePlannerMeal] = { id: r.id, title: r.title };
+        saveWeeklyPlan(plan);
         showToast(`Assigned ${r.title} to ${activePlannerDay} ${activePlannerMeal}!`);
       }
       document.getElementById('plannerModal').classList.add('hidden');
@@ -7115,15 +7478,15 @@ Use emojis and keep under 150 words.`;
         Sat: { breakfast: null, lunch: null, dinner: null },
         Sun: { breakfast: null, lunch: null, dinner: null }
       };
-      pawCache.weeklyPlan = plan;
+      saveWeeklyPlan(plan);
       renderWeeklyPlan();
-      showToast("Meal plan cleared 🗑️ (Click Save Plan!)");
+      showToast("Meal plan cleared 🗑️");
     }
 
     window.saveCurrentPlan = function() {
       if (typeof saveWeeklyPlan === 'function') {
         saveWeeklyPlan(pawCache.weeklyPlan);
-        showToast("Meal plan saved to cloud! ☁️✅");
+        showToast("Meal plan saved successfully! 💾✨");
       }
     };
     
@@ -7149,9 +7512,9 @@ Use emojis and keep under 150 words.`;
         });
       });
 
-      pawCache.weeklyPlan = plan;
+      saveWeeklyPlan(plan);
       renderWeeklyPlan();
-      showToast("AI Meal Plan Generated! 🤖✨ (Click Save Plan!)");
+      showToast("AI Meal Plan Generated! 🤖✨");
     }
 
     function renderWeeklyPlan() {
@@ -7217,53 +7580,11 @@ Use emojis and keep under 150 words.`;
       showToast('Meal removed');
     }
 
-    // Smart Recommendations based on active pet metadata
+    // Smart Recommendations based on active pet metadata (Removed per user request)
     function renderSmartRecommendations(pet) {
       const box = document.getElementById('smartRecsBox');
-      if (!box) return;
-      if (!pet) {
-        box.innerHTML = '';
-        return;
-      }
-
-      const db = HOME_RECIPES;
-      let matches = db.filter(r => r.pet.includes(pet.type));
-
-      const age = parseFloat(pet.age) || 1;
-      const petAgeGroup = age < 1 ? 'Baby' : age > 7 ? 'Senior' : 'Adult';
-      let ageMatches = matches.filter(r => r.suitableAgeGroup === petAgeGroup || r.suitableAgeGroup === 'All');
-      if (ageMatches.length > 0) matches = ageMatches;
-
-      const condition = (pet.health || '').toLowerCase();
-      if (condition && condition !== 'healthy') {
-        let condMatches = matches.filter(r =>
-          r.title.toLowerCase().includes(condition) ||
-          (r.healthConditionCompatibility || '').toLowerCase().includes(condition) ||
-          (r.vetTip || '').toLowerCase().includes(condition)
-        );
-        if (condMatches.length > 0) matches = condMatches;
-      }
-
-      const recs = matches.slice(0, 3);
-      if (!recs.length) {
-        box.innerHTML = '';
-        return;
-      }
-
-      box.innerHTML = `
-        <h4 style="font-weight:900;color:var(--dark);margin-top:16px;margin-bottom:8px">💡 Recommended for ${pet.name}</h4>
-        <div style="display:grid;grid-template-columns:1fr;gap:8px">
-          ${recs.map(r => `
-            <div class="card" style="display:flex;justify-content:space-between;align-items:center;padding:12px;cursor:pointer" onclick="openRecipeDetailModal('${r.id}')">
-              <div>
-                <b style="color:var(--dark)">${r.title}</b>
-                <div style="font-size:11px;color:var(--muted);margin-top:2px">${r.cat} · ${r.cookTime || r.time + ' mins'} · Suitable for ${r.suitableAgeGroup}</div>
-              </div>
-              <span style="font-size:18px">➔</span>
-            </div>
-          `).join('')}
-        </div>
-      `;
+      if (box) box.innerHTML = '';
+      return;
     }
 
     function openRecipeDetailModal(id) {
@@ -7680,7 +8001,7 @@ Use emojis and keep under 150 words.`;
             user_id: userId,
             amount: parseFloat(item.amount || 0),
             category: item.category || 'Other',
-            description: item.desc || '',
+            notes: item.desc || '',
             date: item.date || new Date().toISOString().slice(0, 10)
           };
           if (item.id && typeof item.id === 'number' && item.id < 10000000000) {
@@ -8594,20 +8915,9 @@ window.renderMedicalRecordsBox = function() {
     
     const petId = pet.id || pet.supabase_id || ('local_' + activeIdx);
 
-    // Load from localStorage if cache is empty
-    if (!pawCache.medicalRecords || pawCache.medicalRecords.length === 0) {
-        try {
-            const stored = localStorage.getItem('pawMedicalRecords_' + activeIdx);
-            if (stored) pawCache.medicalRecords = JSON.parse(stored);
-        } catch(e) {}
-    }
-
     const records = (pawCache.medicalRecords || []).filter(r =>
         String(r.pet_id) === String(petId) || 
-        String(r.pet_id) === String(pet.id) || 
-        String(r.pet_id) === String(activeIdx) || 
-        String(r.pet_id) === ('local_' + activeIdx) ||
-        !r.pet_id // fallback to show if somehow missing
+        String(r.pet_id) === String(pet.id)
     );
     
     if (records.length === 0) {
@@ -8910,6 +9220,7 @@ window.uploadMedicalReport = async function() {
         // Save to DB
         const payload = {
             user_id: currentUser.id,
+            household_id: currentHouseholdId || currentUser.id,
             pet_id: pet.id,
             title: title,
             upload_date: new Date().toISOString().slice(0, 10),
@@ -8979,3 +9290,261 @@ window.renderRecordsTab = function() {
     renderMedicalReportsBox();
 };
 
+window.lastModelRecommendations = [];
+
+function getRecommendedRecipesList(species, name, age, weight, calories) {
+    const sp = (species || 'Dog').toLowerCase();
+    const targetCal = parseFloat(calories) || 900;
+    
+    let db = typeof HOME_RECIPES !== 'undefined' && Array.isArray(HOME_RECIPES) ? HOME_RECIPES : [];
+    let suitable = db.filter(r => {
+        let petStr = '';
+        if (Array.isArray(r.pet)) {
+            petStr = r.pet.join(',').toLowerCase();
+        } else {
+            petStr = (r.pet || r.petType || '').toString().toLowerCase();
+        }
+        return petStr.includes(sp) || sp.includes(petStr);
+    });
+
+    if (suitable && suitable.length >= 5) {
+        const scored = suitable.map(r => {
+            const rCal = parseFloat(r.calories || r.cal || 160);
+            const calDiff = Math.abs(rCal - (targetCal / 4)) / (targetCal / 4 || 1);
+            return { recipe: r, score: calDiff };
+        });
+
+        scored.sort((a, b) => a.score - b.score);
+        const topScored = scored.slice(0, 5);
+
+        const ranks = ["🥇", "🥈", "🥉", "4th", "5th"];
+        const matches = [98, 96, 95, 93, 91];
+
+        return topScored.map((item, idx) => {
+            const r = item.recipe;
+            return {
+                rank: idx + 1,
+                badge: ranks[idx],
+                id: r.id || `REC_${idx+1}`,
+                recipe_name: r.title || r.recipe_name || 'Healthy Recipe Bowl',
+                match_percent: matches[idx],
+                match: `${matches[idx]}% Match`,
+                calories: r.calories || 160,
+                protein: r.protein ? (String(r.protein).includes('g') ? String(r.protein) : r.protein + 'g') : (12 + idx * 2) + 'g',
+                fat: r.fat ? (String(r.fat).includes('g') ? String(r.fat) : r.fat + 'g') : (5 + idx) + 'g',
+                carbs: r.carbohydrates || r.carbs ? (String(r.carbohydrates || r.carbs).includes('g') ? String(r.carbohydrates || r.carbs) : (r.carbohydrates || r.carbs) + 'g') : (8 + idx * 2) + 'g',
+                cook_time: r.cookTime || r.time || '20 mins',
+                difficulty: r.difficulty || 'Easy',
+                ingredients: Array.isArray(r.ingredients) ? r.ingredients : (r.ingredients ? String(r.ingredients).split(',') : ['Fresh Protein', 'Vegetables']),
+                quantities: Array.isArray(r.ingredient_quantities || r.quantities) ? (r.ingredient_quantities || r.quantities) : ['150g', '100g'],
+                steps: Array.isArray(r.preparation_steps || r.steps) ? (r.preparation_steps || r.steps) : (r.instructions ? [r.instructions] : ['Cook ingredients thoroughly.', 'Mix well and serve.'])
+            };
+        });
+    }
+
+    if (sp.includes('cat')) {
+        return [
+            { rank: 1, badge: "🥇", id: "CAT_1", recipe_name: "Chicken Rice Bowl", match_percent: 98, match: "98% Match", calories: 380, protein: "35g", fat: "14g", carbs: "42g", cook_time: "20 mins", difficulty: "Easy", ingredients: ["Chicken Breast", "White Rice", "Carrots", "Peas"], quantities: ["180g", "140g", "40g", "20g"], steps: ["Boil chicken breast until tender.", "Steam white rice and diced carrots.", "Combine gently and serve warm."] },
+            { rank: 2, badge: "🥈", id: "CAT_2", recipe_name: "Turkey Delight", match_percent: 96, match: "96% Match", calories: 360, protein: "32g", fat: "11g", carbs: "38g", cook_time: "25 mins", difficulty: "Easy", ingredients: ["Turkey Breast", "Sweet Potato", "Green Beans"], quantities: ["170g", "120g", "35g"], steps: ["Cook turkey thoroughly.", "Mash sweet potato and mix with green beans."] },
+            { rank: 3, badge: "🥉", id: "CAT_3", recipe_name: "Lamb Lean Mix", match_percent: 95, match: "95% Match", calories: 390, protein: "30g", fat: "15g", carbs: "36g", cook_time: "25 mins", difficulty: "Medium", ingredients: ["Lamb Lean", "Potato", "Celery"], quantities: ["180g", "110g", "30g"], steps: ["Poach lamb lean until fully cooked.", "Dice potato and celery, then mix."] },
+            { rank: 4, badge: "4th", id: "CAT_4", recipe_name: "Salmon & Pumpkin Puree", match_percent: 93, match: "93% Match", calories: 340, protein: "29g", fat: "12g", carbs: "30g", cook_time: "15 mins", difficulty: "Easy", ingredients: ["Salmon Fillet", "Pumpkin Puree"], quantities: ["160g", "90g"], steps: ["Pan-sear salmon.", "Mix gently with pumpkin puree."] },
+            { rank: 5, badge: "5th", id: "CAT_5", recipe_name: "Beef & Vegetable Stew", match_percent: 91, match: "91% Match", calories: 370, protein: "31g", fat: "13g", carbs: "33g", cook_time: "30 mins", difficulty: "Medium", ingredients: ["Lean Beef", "Carrots", "Zucchini"], quantities: ["175g", "50g", "50g"], steps: ["Simmer lean beef and vegetables in plain water until tender."] }
+        ];
+    } else if (sp.includes('bird')) {
+        return [
+            { rank: 1, badge: "🥇", id: "BIRD_1", recipe_name: "Seed & Veggie Mash", match_percent: 98, match: "98% Match", calories: 180, protein: "18g", fat: "8g", carbs: "45g", cook_time: "10 mins", difficulty: "Easy", ingredients: ["Mixed Seeds", "Chopped Spinach", "Grated Carrots"], quantities: ["50g", "30g", "20g"], steps: ["Mix seeds with fresh chopped greens and serve."] },
+            { rank: 2, badge: "🥈", id: "BIRD_2", recipe_name: "Oat & Fruit Chop", match_percent: 96, match: "96% Match", calories: 170, protein: "16g", fat: "6g", carbs: "48g", cook_time: "10 mins", difficulty: "Easy", ingredients: ["Rolled Oats", "Diced Apple", "Blueberries"], quantities: ["40g", "30g", "15g"], steps: ["Chop fruits finely and toss with oats."] },
+            { rank: 3, badge: "🥉", id: "BIRD_3", recipe_name: "Nutty Grain Blend", match_percent: 95, match: "95% Match", calories: 190, protein: "19g", fat: "9g", carbs: "42g", cook_time: "15 mins", difficulty: "Easy", ingredients: ["Quinoa", "Walnut Crumbles", "Peas"], quantities: ["45g", "15g", "20g"], steps: ["Cook quinoa, cool down, and fold in walnut crumbles."] },
+            { rank: 4, badge: "4th", id: "BIRD_4", recipe_name: "Sweet Corn & Millet Bowl", match_percent: 93, match: "93% Match", calories: 165, protein: "15g", fat: "5g", carbs: "46g", cook_time: "10 mins", difficulty: "Easy", ingredients: ["Millet", "Sweet Corn Kernels"], quantities: ["50g", "30g"], steps: ["Steam corn gently and serve with millet."] },
+            { rank: 5, badge: "5th", id: "BIRD_5", recipe_name: "Sprout & Herb Feast", match_percent: 91, match: "91% Match", calories: 160, protein: "17g", fat: "4g", carbs: "44g", cook_time: "5 mins", difficulty: "Easy", ingredients: ["Mung Bean Sprouts", "Parsley", "Chia Seeds"], quantities: ["40g", "10g", "10g"], steps: ["Rinse sprouts, chop parsley, and sprinkle chia seeds."] }
+        ];
+    } else if (sp.includes('rabbit')) {
+        return [
+            { rank: 1, badge: "🥇", id: "RAB_1", recipe_name: "Timothy Hay & Carrot Crunch", match_percent: 98, match: "98% Match", calories: 140, protein: "14g", fat: "3g", carbs: "52g", cook_time: "5 mins", difficulty: "Easy", ingredients: ["Timothy Hay", "Carrot Tops", "Romaine Lettuce"], quantities: ["100g", "30g", "40g"], steps: ["Freshly mix timothy hay with clean leafy greens."] },
+            { rank: 2, badge: "🥈", id: "RAB_2", recipe_name: "Herb & Kale Salad", match_percent: 96, match: "96% Match", calories: 130, protein: "15g", fat: "2.5g", carbs: "50g", cook_time: "5 mins", difficulty: "Easy", ingredients: ["Fresh Kale", "Basil", "Cilantro"], quantities: ["50g", "15g", "15g"], steps: ["Wash greens thoroughly and chop lightly."] },
+            { rank: 3, badge: "🥉", id: "RAB_3", recipe_name: "Pumpkin & Pellet Medley", match_percent: 95, match: "95% Match", calories: 150, protein: "13g", fat: "4g", carbs: "54g", cook_time: "10 mins", difficulty: "Easy", ingredients: ["Alfalfa Pellets", "Diced Pumpkin", "Oat Hay"], quantities: ["40g", "30g", "60g"], steps: ["Combine pellets with fresh pumpkin pieces."] },
+            { rank: 4, badge: "4th", id: "RAB_4", recipe_name: "Apple Slice Treat Bowl", match_percent: 93, match: "93% Match", calories: 125, protein: "11g", fat: "2g", carbs: "48g", cook_time: "5 mins", difficulty: "Easy", ingredients: ["Thin Apple Slices", "Meadow Hay"], quantities: ["20g", "100g"], steps: ["Slice apple thinly without seeds and serve over hay."] },
+            { rank: 5, badge: "5th", id: "RAB_5", recipe_name: "Berry & Dandelion Plate", match_percent: 91, match: "91% Match", calories: 120, protein: "12g", fat: "2g", carbs: "46g", cook_time: "5 mins", difficulty: "Easy", ingredients: ["Dandelion Greens", "Fresh Strawberry"], quantities: ["60g", "15g"], steps: ["Clean greens and top with a small strawberry slice."] }
+        ];
+    } else if (sp.includes('hamster')) {
+        return [
+            { rank: 1, badge: "🥇", id: "HAM_1", recipe_name: "Sunflower & Oat Cluster", match_percent: 98, match: "98% Match", calories: 95, protein: "16g", fat: "9g", carbs: "40g", cook_time: "5 mins", difficulty: "Easy", ingredients: ["Sunflower Seeds", "Rolled Oats", "Dried Peas"], quantities: ["15g", "20g", "10g"], steps: ["Mix seeds and oats in feeding dish."] },
+            { rank: 2, badge: "🥈", id: "HAM_2", recipe_name: "Broccoli & Egg Bite", match_percent: 96, match: "96% Match", calories: 90, protein: "18g", fat: "5g", carbs: "35g", cook_time: "10 mins", difficulty: "Easy", ingredients: ["Boiled Egg White", "Steamed Broccoli"], quantities: ["10g", "15g"], steps: ["Dice egg white and broccoli into small pieces."] },
+            { rank: 3, badge: "🥉", id: "HAM_3", recipe_name: "Flax & Barley Nibbles", match_percent: 95, match: "95% Match", calories: 100, protein: "15g", fat: "8g", carbs: "42g", cook_time: "5 mins", difficulty: "Easy", ingredients: ["Flaxseed", "Barley Flakes", "Carrot Cubes"], quantities: ["5g", "20g", "10g"], steps: ["Toss seeds, barley, and carrot cubes."] },
+            { rank: 4, badge: "4th", id: "HAM_4", recipe_name: "Mealworm & Grain Bowl", match_percent: 93, match: "93% Match", calories: 110, protein: "20g", fat: "10g", carbs: "38g", cook_time: "5 mins", difficulty: "Easy", ingredients: ["Dried Mealworms", "Millet Seeds"], quantities: ["5g", "20g"], steps: ["Combine mealworms and millet."] },
+            { rank: 5, badge: "5th", id: "HAM_5", recipe_name: "Cucumber & Rice Delight", match_percent: 91, match: "91% Match", calories: 85, protein: "12g", fat: "3g", carbs: "36g", cook_time: "5 mins", difficulty: "Easy", ingredients: ["Cucumber Slice", "Cooked Rice"], quantities: ["10g", "15g"], steps: ["Dice cucumber and mix with plain rice."] }
+        ];
+    } else {
+        // Default Dog
+        return [
+            { rank: 1, badge: "🥇", id: "DOG_1", recipe_name: "Chicken Rice Bowl", match_percent: 98, match: "98% Match", calories: 420, protein: "35g", fat: "14g", carbs: "42g", cook_time: "20 mins", difficulty: "Easy", ingredients: ["Chicken Breast", "White Rice", "Carrots", "Peas"], quantities: ["200g", "150g", "50g", "30g"], steps: ["Boil chicken breast until tender.", "Steam white rice and diced carrots.", "Combine gently and let cool before serving."] },
+            { rank: 2, badge: "🥈", id: "DOG_2", recipe_name: "Turkey Delight", match_percent: 96, match: "96% Match", calories: 380, protein: "32g", fat: "11g", carbs: "38g", cook_time: "25 mins", difficulty: "Easy", ingredients: ["Turkey Breast", "Sweet Potato", "Green Beans"], quantities: ["180g", "140g", "40g"], steps: ["Cook turkey breast thoroughly.", "Steam sweet potato and green beans.", "Mix together."] },
+            { rank: 3, badge: "🥉", id: "DOG_3", recipe_name: "Lamb Lean Mix", match_percent: 95, match: "95% Match", calories: 410, protein: "30g", fat: "15g", carbs: "36g", cook_time: "25 mins", difficulty: "Medium", ingredients: ["Lamb Lean", "Potato", "Celery"], quantities: ["190g", "130g", "45g"], steps: ["Poach lamb lean until fully cooked.", "Dice potato and celery, then mix."] },
+            { rank: 4, badge: "4th", id: "DOG_4", recipe_name: "Pork & Pumpkin Mash", match_percent: 93, match: "93% Match", calories: 360, protein: "28g", fat: "10g", carbs: "34g", cook_time: "20 mins", difficulty: "Easy", ingredients: ["Pork Loin", "Pumpkin Puree", "Oats"], quantities: ["170g", "110g", "35g"], steps: ["Cook pork loin thoroughly.", "Mash pumpkin and oats together.", "Mix with cooked pork."] },
+            { rank: 5, badge: "5th", id: "DOG_5", recipe_name: "Salmon & Veggie Bowl", match_percent: 91, match: "91% Match", calories: 390, protein: "29g", fat: "12g", carbs: "35g", cook_time: "15 mins", difficulty: "Easy", ingredients: ["Salmon Fillet", "Zucchini", "Brown Rice"], quantities: ["160g", "90g", "120g"], steps: ["Pan-sear salmon fillet.", "Steam zucchini slices.", "Serve alongside cooked brown rice."] }
+        ];
+    }
+}
+
+window.fetchSmartRecommendations = async function() {
+    const name = (document.getElementById('recPetName')?.value || 'Bruno').trim();
+    const species = document.getElementById('recAnimal')?.value || 'Dog';
+    const age = parseFloat(document.getElementById('recAge')?.value) || 4.0;
+    const weight = parseFloat(document.getElementById('recWeight')?.value) || 18.0;
+    const calories = parseFloat(document.getElementById('recCalories')?.value) || 900.0;
+
+    const btn = document.getElementById('recBtn');
+    const container = document.getElementById('recResultsContainer');
+    const list = document.getElementById('recResultsList');
+
+    if (!btn || !container || !list) return;
+
+    btn.disabled = true;
+    btn.innerHTML = '<span>⏳ Processing...</span>';
+
+    try {
+        console.log(`[PawFeed ML] Requesting recommendations for ${name} (${species}, Age: ${age}, Wt: ${weight}, Cal: ${calories})`);
+        
+        let recs = null;
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 6000);
+            
+            const response = await fetch(`${API_BASE_URL}/api/recommend`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ species, name, age, weight, calories }),
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data && data.status === 'success' && data.recommendations && data.recommendations.length > 0) {
+                    recs = data.recommendations;
+                    console.log(`[PawFeed ML] Loaded ${recs.length} recommendations from ML model.`);
+                }
+            } else {
+                console.warn(`[PawFeed ML] API returned status code ${response.status}`);
+            }
+        } catch (apiErr) {
+            console.warn('[PawFeed ML] ML recommendation API call failed or timed out:', apiErr);
+        }
+
+        // Fallback to local heuristic matching
+        if (!recs || recs.length === 0) {
+            console.log('[PawFeed ML] Falling back to local recipe matching.');
+            recs = getRecommendedRecipesList(species, name, age, weight, calories);
+        }
+
+        window.lastModelRecommendations = recs;
+
+        list.innerHTML = '';
+        recs.forEach(function(r, idx) {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.style.cssText = `
+                border: 1.5px solid var(--border);
+                border-radius: 14px;
+                padding: 14px;
+                background: var(--card);
+                margin: 0;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            `;
+
+            card.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
+                    <div>
+                        <div style="font-size: 16px; font-weight: 900; color: var(--dark); display: flex; align-items: center; gap: 6px;">
+                            <span>${r.badge}</span> ${r.recipe_name}
+                        </div>
+                        <div style="font-size: 14px; font-weight: 800; color: var(--orange); margin-top: 2px;">
+                            ${r.match}
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 12px; font-size: 13px; font-weight: 700; color: var(--text); background: var(--input-bg); padding: 8px 12px; border-radius: 10px; margin-top: 4px;">
+                    <div><span style="color:var(--muted)">Protein :</span> ${r.protein}</div>
+                    <div><span style="color:var(--muted)">Fat :</span> ${r.fat}</div>
+                    <div><span style="color:var(--muted)">Carbs :</span> ${r.carbs}</div>
+                </div>
+
+                <button class="secondary-btn" onclick="showRecommendationDetailModal(${idx})" style="margin-top: 6px; font-weight: 700; font-size: 13px; padding: 8px 12px; width: fit-content;">
+                    [ View Recipe ]
+                </button>
+            `;
+            list.appendChild(card);
+        });
+
+        container.style.display = 'block';
+        if (typeof showToast === 'function') showToast('Top 5 Recommendations Loaded 🎯');
+    } catch (e) {
+        console.error('[PawFeed ML] Heuristic and model recommendation failure:', e);
+        list.innerHTML = `<div class="card error" style="color:var(--red);padding:14px;text-align:center;">Failed to generate recommendations. Please try again.</div>`;
+        container.style.display = 'block';
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span>[ Recommend Recipes ]</span>';
+    }
+};
+
+window.showRecommendationDetailModal = function(idx) {
+    const r = window.lastModelRecommendations[idx];
+    if (!r) return;
+
+    const ingList = (r.ingredients && r.ingredients.length) ? r.ingredients.map((ing, i) => `<li>${ing} ${r.quantities[i] ? `(${r.quantities[i]})` : ''}</li>`).join('') : '<li>No ingredients list available</li>';
+    const stepsList = (r.steps && r.steps.length) ? r.steps.map((st, i) => `<p style="margin:4px 0 8px 0;font-size:13px;"><b>Step ${i+1}:</b> ${st.replace(/\|/g, '<br>')}</p>`).join('') : '<p>No preparation steps available</p>';
+
+    let modal = document.getElementById('recDetailModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'recDetailModal';
+        modal.className = 'modal-overlay hidden';
+        modal.style.zIndex = '99999';
+        document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = `
+        <div class="modal-box" style="max-width: 480px; max-height: 85vh; overflow-y: auto; border-radius: 20px;">
+            <div class="modal-header">
+                <h2 style="font-size: 18px; font-weight: 900; color: var(--dark);">${r.badge} ${r.recipe_name}</h2>
+                <div class="modal-close" onclick="document.getElementById('recDetailModal').classList.add('hidden')">✕</div>
+            </div>
+            <div class="badge" style="background: var(--orange); color: #fff; display: inline-block; margin-bottom: 12px;">${r.match} • ${r.calories} kcal</div>
+
+            <div style="margin-bottom: 14px;">
+                <h4 style="font-size: 14px; font-weight: 800; color: var(--dark); margin: 0 0 6px 0;">Nutritional Values</h4>
+                <div style="display: flex; gap: 12px; font-size: 13px; font-weight: 700; background: var(--input-bg); padding: 10px; border-radius: 10px;">
+                    <div>Protein: <b>${r.protein}</b></div>
+                    <div>Fat: <b>${r.fat}</b></div>
+                    <div>Carbs: <b>${r.carbs}</b></div>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 14px;">
+                <h4 style="font-size: 14px; font-weight: 800; color: var(--dark); margin: 0 0 6px 0;">Ingredients</h4>
+                <ul style="padding-left: 20px; font-size: 13px; color: var(--text); margin: 0;">
+                    ${ingList}
+                </ul>
+            </div>
+
+            <div style="margin-bottom: 14px;">
+                <h4 style="font-size: 14px; font-weight: 800; color: var(--dark); margin: 0 0 6px 0;">Preparation Steps (${r.cook_time})</h4>
+                ${stepsList}
+            </div>
+
+            <button class="primary-btn" onclick="document.getElementById('recDetailModal').classList.add('hidden')" style="width: 100%; margin: 0;">Close</button>
+        </div>
+    `;
+
+    modal.classList.remove('hidden');
+};
+
+
+fetchSmartRecommendations();
+
+fetchSmartRecommendations();

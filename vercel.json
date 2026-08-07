@@ -2,6 +2,10 @@
   "version": 2,
   "rewrites": [
     {
+      "source": "/api/env.js",
+      "destination": "/api/env.js"
+    },
+    {
       "source": "/api/:path*",
       "destination": "https://pawfeedmobile.onrender.com/api/:path*"
     }

@@ -3549,3 +3549,64 @@ body {
   }
   .quick-grid { grid-template-columns: repeat(4, 1fr); }
 }
+
+/* ═══════════════════════════════════════════════════
+   WEBSITE LAYOUT GRID & ACCESSIBILITY ENHANCEMENTS
+   ═══════════════════════════════════════════════════ */
+@media (min-width: 900px) {
+  /* AI Chat Tab — header banner spans full width,
+     then .ai-box and the weekly digest card sit side-by-side */
+  #aiTab {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .ai-desktop-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    align-items: start;
+    margin-top: 0;
+  }
+  #aiTab .ai-box {
+    margin-top: 0;
+  }
+
+  /* Care & Safety — first card (Food Safety Checker) full width,
+     remaining cards in two-column grid */
+  #careTab .care-desktop-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+
+  /* Community Feed — uses existing .planner-desktop-grid class */
+
+  /* Homemade Food Studio recipe card grid */
+  #recipeList {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .recipe-card {
+    margin: 0 !important;
+  }
+
+  /* Remove the 90px padding-bottom that was for mobile bottom-nav */
+  #aiTab { padding-bottom: 0 !important; }
+}
+
+/* Accessibility Focus States for Mouse + Keyboard Users */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+.card:focus-visible,
+.pet-tab:focus-visible,
+.nav-item:focus-visible {
+  outline: 3px solid var(--orange);
+  outline-offset: 2px;
+}
+

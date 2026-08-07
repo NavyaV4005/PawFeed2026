@@ -40,3 +40,26 @@ PawFeedAppium/.wdio-results.jsonl
 # OS generated files
 .DS_Store
 Thumbs.db
+
+# Secret / environment files — NEVER push these
+.env
+.env.local
+.env.production
+backend/.env
+
+# Large data / recipe files (too big for GitHub)
+pet_recipes_master.csv
+pet_recipes_master.json
+recipes_dog.json
+recipes_cat.json
+recipes_bird.json
+recipes_hamster.json
+recipes_rabbit.json
+
+# Python cache
+__pycache__/
+*.pyc
+backend/__pycache__/
+
+# ML model recipe CSV files — too large for GitHub (>100MB)
+backend/models/*.csv

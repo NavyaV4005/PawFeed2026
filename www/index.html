@@ -16,7 +16,7 @@
   <meta property="og:description"
     content="Feeding schedules, nutrition plans, health tracking, and a full AI assistant for every pet — all in one place." />
   <meta property="og:image" content="/icon-192.png" />
-  <meta property="og:url" content="https://pawfeed.app" />
+  <meta property="og:url" content="https://www-mauve-one.vercel.app/" />
   <meta property="og:site_name" content="PawFeed" />
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary" />
@@ -35,7 +35,7 @@
     rel="stylesheet">
 
   <!-- App styles -->
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=1.0.1">
   <link rel="stylesheet" href="dm-styles.css">
 </head>
 
@@ -765,10 +765,132 @@
 
             <div id="carePetTabs" class="pet-tabs"></div>
             <div id="careBox"></div>
+
+            <!-- CARE CARDS GRID (2 cols on desktop) -->
+            <div class="care-desktop-grid">
+            <!-- MEDICATIONS TRACKER -->
+            <div class="card" style="margin-top:16px; border-left: 5px solid var(--orange)">
+              <h3 style="font-weight:900; margin-bottom:4px">💊 Medications</h3>
+              <p class="subtitle" style="margin-bottom:12px">Track daily doses, schedules, and veterinary prescriptions.</p>
+              
+              <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:14px">
+                <div id="medListBox"></div>
+              </div>
+
+              <div id="addMedForm" style="background:var(--bg); border:1px solid var(--border); padding:14px; border-radius:16px;">
+                <h4 style="font-weight:900; font-size:14px; color:var(--dark); margin:0 0 10px 0;">➕ Add Medication</h4>
+                
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px">
+                  <div>
+                    <label style="font-size:11px; margin-bottom:4px; display:block">Medicine Name</label>
+                    <input id="medName" type="text" placeholder="e.g. Heartgard, Apoquel" style="margin:0; padding:8px 10px; font-size:13px; border-radius:10px; border:1px solid var(--border); background:#fff; color:var(--text)">
+                  </div>
+                  <div>
+                    <label style="font-size:11px; margin-bottom:4px; display:block">Dosage</label>
+                    <input id="medDose" type="text" placeholder="e.g. 1 pill, 5ml" style="margin:0; padding:8px 10px; font-size:13px; border-radius:10px; border:1px solid var(--border); background:#fff; color:var(--text)">
+                  </div>
+                </div>
+
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px">
+                  <div>
+                    <label style="font-size:11px; margin-bottom:4px; display:block">Schedule Time</label>
+                    <input id="medTime" type="time" style="margin:0; padding:8px 10px; font-size:13px; border-radius:10px; border:1px solid var(--border); background:#fff; color:var(--text)">
+                  </div>
+                  <div>
+                    <label style="font-size:11px; margin-bottom:4px; display:block">Notes</label>
+                    <input id="medNotes" type="text" placeholder="e.g. Give with food" style="margin:0; padding:8px 10px; font-size:13px; border-radius:10px; border:1px solid var(--border); background:#fff; color:var(--text)">
+                  </div>
+                </div>
+
+                <button class="primary-btn" onclick="addMed()" style="margin:0; width:100%; padding:10px; border-radius:12px; font-size:13px">Add Medication</button>
+              </div>
+            </div>
+
+            <!-- VET VISIT TRACKER -->
+            <div class="card" style="margin-top:16px; border-left: 5px solid var(--primary)">
+              <h3 style="font-weight:900; margin-bottom:4px">🩺 Veterinary Logs</h3>
+              <p class="subtitle" style="margin-bottom:12px">Log vet appointments, vaccinations, and track upcoming checkups.</p>
+              
+              <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:14px">
+                <div id="vetListBox"></div>
+              </div>
+
+              <div id="addVetVisitForm" style="background:var(--bg); border:1px solid var(--border); padding:14px; border-radius:16px;">
+                <h4 style="font-weight:900; font-size:14px; color:var(--dark); margin:0 0 10px 0;">➕ Log Vet Visit</h4>
+                
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px">
+                  <div>
+                    <label style="font-size:11px; margin-bottom:4px; display:block">Visit Date</label>
+                    <input id="vetDate" type="date" style="margin:0; padding:8px 10px; font-size:13px; border-radius:10px; border:1px solid var(--border); background:#fff; color:var(--text)">
+                  </div>
+                  <div>
+                    <label style="font-size:11px; margin-bottom:4px; display:block">Clinic Name</label>
+                    <input id="vetClinic" type="text" placeholder="e.g. City Vet Clinic" style="margin:0; padding:8px 10px; font-size:13px; border-radius:10px; border:1px solid var(--border); background:#fff; color:var(--text)">
+                  </div>
+                </div>
+
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px">
+                  <div>
+                    <label style="font-size:11px; margin-bottom:4px; display:block">Reason / Treatment</label>
+                    <input id="vetReason" type="text" placeholder="e.g. Annual Checkup, Vaccination" style="margin:0; padding:8px 10px; font-size:13px; border-radius:10px; border:1px solid var(--border); background:#fff; color:var(--text)">
+                  </div>
+                  <div>
+                    <label style="font-size:11px; margin-bottom:4px; display:block">Next Appointment</label>
+                    <input id="vetNext" type="date" style="margin:0; padding:8px 10px; font-size:13px; border-radius:10px; border:1px solid var(--border); background:#fff; color:var(--text)">
+                  </div>
+                </div>
+
+                <div style="margin-bottom:12px">
+                  <label style="font-size:11px; margin-bottom:4px; display:block">Notes / Observations</label>
+                  <input id="vetNotes" type="text" placeholder="e.g. Prescribed ear drops for 7 days" style="margin:0; padding:8px 10px; font-size:13px; border-radius:10px; border:1px solid var(--border); background:#fff; color:var(--text)">
+                </div>
+
+                <button class="primary-btn" onclick="addVetVisit()" style="margin:0; width:100%; padding:10px; border-radius:12px; font-size:13px">Log Visit</button>
+              </div>
+            </div>
+
+            <!-- SLEEP TRACKER -->
+            <div class="card" style="margin-top:16px; border-left: 5px solid var(--teal)">
+              <h3 style="font-weight:900; margin-bottom:4px">💤 Sleep Log</h3>
+              <p class="subtitle" style="margin-bottom:12px">Record your pet's sleep duration and quality to monitor rest patterns.</p>
+              
+              <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:14px">
+                <div id="sleepHistoryBox"></div>
+              </div>
+
+              <div id="addSleepLogForm" style="background:var(--bg); border:1px solid var(--border); padding:14px; border-radius:16px;">
+                <h4 style="font-weight:900; font-size:14px; color:var(--dark); margin:0 0 10px 0;">➕ Log Sleep</h4>
+                
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px">
+                  <div>
+                    <label style="font-size:11px; margin-bottom:4px; display:block">Hours Slept</label>
+                    <input id="sleepHours" type="number" step="0.5" placeholder="e.g. 12" style="margin:0; padding:8px 10px; font-size:13px; border-radius:10px; border:1px solid var(--border); background:#fff; color:var(--text)">
+                  </div>
+                  <div>
+                    <label style="font-size:11px; margin-bottom:4px; display:block">Rest Quality</label>
+                    <select id="sleepQuality" style="margin:0; padding:8px 10px; font-size:13px; border-radius:10px; border:1px solid var(--border); background:#fff; color:var(--text)">
+                      <option value="Excellent">Excellent 😊</option>
+                      <option value="Good" selected>Good 🙂</option>
+                      <option value="Normal">Normal 😐</option>
+                      <option value="Restless">Restless 😴</option>
+                      <option value="Poor">Poor 😟</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style="margin-bottom:12px">
+                  <label style="font-size:11px; margin-bottom:4px; display:block">Sleep Notes (optional)</label>
+                  <input id="sleepNotes" type="text" placeholder="e.g. Slept through the night peacefully" style="margin:0; padding:8px 10px; font-size:13px; border-radius:10px; border:1px solid var(--border); background:#fff; color:var(--text)">
+                </div>
+
+                <button class="primary-btn" onclick="logSleep()" style="margin:0; width:100%; padding:10px; border-radius:12px; font-size:13px">Log Sleep</button>
+              </div>
+            </div>
+            </div><!-- /.care-desktop-grid -->
           </div>
 
           <!-- AI TAB -->
-          <div id="aiTab" class="screen tab-screen hidden" style="padding-bottom: 90px;">
+          <div id="aiTab" class="screen tab-screen hidden">
             <!-- Premium AI Header Banner -->
             <div
               style="background: linear-gradient(135deg, var(--purple), var(--blue)); border-radius: 20px; padding: 24px 20px; margin-bottom: 20px; color: white; box-shadow: 0 10px 20px rgba(139, 92, 246, 0.25); position: relative; overflow: hidden;">
@@ -780,38 +902,42 @@
               <p style="margin: 0; font-size: 0.95rem; opacity: 0.9; position: relative; z-index: 1; line-height: 1.4;">
                 Powered by Claude AI. Ask anything about your pet's health, diet, and training.</p>
             </div>
-            <div class="ai-box">
-              <b style="font-size:15px">Ask PawFeed AI</b>
-              <div id="chatWindow" class="chat-window">
-                <div class="msg bot-msg">Hi! I'm PawFeed AI 🐾 Ask me about feeding time, safe food, water, moods, or
-                  pet
-                  care. I'll give personalized advice based on your pet's profile!</div>
-              </div>
-              <div class="chat-row">
-                <input id="aiInput" type="text" placeholder="Ask something..." autocomplete="off" autocorrect="off"
-                  spellcheck="false" dir="ltr"
-                  style="-webkit-user-select: auto; user-select: auto; transform: translateZ(0);"
-                  onkeydown="if(event.key==='Enter') sendAIMessage()" />
-                <button onclick="sendAIMessage()">➤</button>
-              </div>
-            </div>
 
-            <!-- WEEKLY AI SUMMARY -->
-            <div
-              style="margin-top: 24px; padding: 20px; border-radius: 20px; background: linear-gradient(145deg, var(--card), var(--card-2)); box-shadow: var(--shadow); border: 1px solid var(--border); position: relative; overflow: hidden;">
-              <div
-                style="position: absolute; top: 0; right: 0; width: 100px; height: 100px; background: radial-gradient(circle, rgba(16, 185, 129, 0.2) 0%, transparent 70%); border-radius: 50%;">
+            <!-- AI chat + weekly digest in side-by-side grid on desktop -->
+            <div class="ai-desktop-row">
+              <div class="ai-box">
+                <b style="font-size:15px">Ask PawFeed AI</b>
+                <div id="chatWindow" class="chat-window">
+                  <div class="msg bot-msg">Hi! I'm PawFeed AI 🐾 Ask me about feeding time, safe food, water, moods, or
+                    pet
+                    care. I'll give personalized advice based on your pet's profile!</div>
+                </div>
+                <div class="chat-row">
+                  <input id="aiInput" type="text" placeholder="Ask something..." autocomplete="off" autocorrect="off"
+                    spellcheck="false" dir="ltr"
+                    style="-webkit-user-select: auto; user-select: auto; transform: translateZ(0);"
+                    onkeydown="if(event.key==='Enter') sendAIMessage()" />
+                  <button onclick="sendAIMessage()">➤</button>
+                </div>
               </div>
-              <h3
-                style="margin: 0 0 8px 0; font-size: 1.2rem; color: var(--dark); font-weight: 800; display: flex; align-items: center; gap: 8px;">
-                ✨ Weekly AI Digest</h3>
-              <p style="margin: 0 0 16px 0; font-size: 0.9rem; color: var(--muted); line-height: 1.5;">Get an
-                AI-generated health and wellness summary of your pet's week based on your logs.</p>
-              <button class="primary-btn" onclick="generateWeeklySummary()"
-                style="background: linear-gradient(135deg, var(--teal), var(--green)); width: 100%; border: none; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);">✨
-                Generate Summary</button>
-              <div id="weeklySummaryBox" style="margin-top:12px"></div>
-            </div>
+
+              <!-- WEEKLY AI SUMMARY -->
+              <div
+                style="padding: 20px; border-radius: 20px; background: linear-gradient(145deg, var(--card), var(--card-2)); box-shadow: var(--shadow); border: 1px solid var(--border); position: relative; overflow: hidden;">
+                <div
+                  style="position: absolute; top: 0; right: 0; width: 100px; height: 100px; background: radial-gradient(circle, rgba(16, 185, 129, 0.2) 0%, transparent 70%); border-radius: 50%;">
+                </div>
+                <h3
+                  style="margin: 0 0 8px 0; font-size: 1.2rem; color: var(--dark); font-weight: 800; display: flex; align-items: center; gap: 8px;">
+                  ✨ Weekly AI Digest</h3>
+                <p style="margin: 0 0 16px 0; font-size: 0.9rem; color: var(--muted); line-height: 1.5;">Get an
+                  AI-generated health and wellness summary of your pet's week based on your logs.</p>
+                <button class="primary-btn" onclick="generateWeeklySummary()"
+                  style="background: linear-gradient(135deg, var(--teal), var(--green)); width: 100%; border: none; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);">✨
+                  Generate Summary</button>
+                <div id="weeklySummaryBox" style="margin-top:12px"></div>
+              </div>
+            </div><!-- /.ai-desktop-row -->
           </div>
 
           <!-- COMMUNITY TAB -->
@@ -969,6 +1095,7 @@
               <div class="homefood-tool" onclick="startFoodTimer()"><span>⏲️</span><b>Cooking
                   Timer</b><small>Voice-guided
                   step timer.</small></div>
+              <div class="homefood-tool" onclick="document.getElementById('aiRecipeBuilderCard').classList.toggle('hidden')"><span>🤖</span><b>AI Recipe Builder</b><small>Generate custom recipes.</small></div>
             </div>
 
             <!-- Meal Calculator Results -->
@@ -977,21 +1104,75 @@
             <!-- Cooking Timer -->
             <div id="timerBox"></div>
 
-            <div id="homemadeDashboard"></div>
-
-
-            <div class="assistant-mini">
-              <b>🍲 AI Food Assistant</b>
-              <p style="font-size:12px;opacity:.8;margin:6px 0">Ask about substitutes, allergies, storage, recipes, or
-                diet
-                plans.</p>
-              <div class="chat-row">
-                <input id="foodAIInput" placeholder="Example: substitute chicken for my cat"
-                  onkeydown="if(event.key==='Enter') askFoodAssistant()" />
-                <button onclick="askFoodAssistant()">➤</button>
-              </div>
-              <div id="foodAIReply" style="font-size:13px;line-height:1.45;margin-top:10px"></div>
+            <!-- AI RECIPE BUILDER PANEL -->
+            <div id="aiRecipeBuilderCard" class="card hidden" style="border: 2px solid var(--purple); background: linear-gradient(135deg, rgba(139,92,246,0.05) 0%, rgba(139,92,246,0.02) 100%); margin-bottom: 20px; border-radius: 18px;">
+              <h3 style="font-size: 18px; font-weight: 900; color: var(--dark); display: flex; align-items: center; gap: 8px; margin: 0 0 10px 0;">
+                <span>🤖</span> AI Recipe Builder
+              </h3>
+              <p class="subtitle" style="margin-bottom:12px">Tell our AI what ingredients your pet loves or any allergies they have, and we will formulate a safe, customized recipe.</p>
+              
+              <label style="font-size: 12px; font-weight: 700; margin-bottom: 4px; display: block;">Dietary Constraints / Ingredients to Include or Exclude</label>
+              <textarea id="aiRecipeConstraints" placeholder="e.g. Include carrots and salmon, avoid grain, chicken allergy..." rows="3" style="width:100%; border-radius:12px; border:1.5px solid var(--border); padding:10px; font-size:13px; margin-bottom:12px; background:var(--input-bg); color:var(--text)"></textarea>
+              
+              <button class="primary-btn" onclick="generateAIRecipe()" style="margin: 0; width: 100%; font-size: 14px; font-weight: 800; border-radius: 12px; padding: 12px; display: flex; align-items: center; justify-content: center; gap: 8px; background: linear-gradient(135deg, var(--purple), var(--blue)); box-shadow: 0 4px 15px rgba(139, 92, 246, 0.25);">
+                <span>✨ Generate Custom Recipe</span>
+              </button>
             </div>
+
+            <!-- 🐾 SMART RECIPE RECOMMENDATION SECTION (.pkl Model Inference) -->
+            <div class="card" style="border: 2px solid var(--orange); background: linear-gradient(135deg, rgba(255,122,0,0.05) 0%, rgba(255,154,60,0.02) 100%); margin-bottom: 20px; border-radius: 18px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                <h3 style="font-size: 18px; font-weight: 900; color: var(--dark); display: flex; align-items: center; gap: 8px; margin: 0;">
+                  <span>🐾</span> Smart Recipe Recommendation
+                </h3>
+              </div>
+              <p class="subtitle" style="margin: 0 0 14px 0; font-size: 13px;">Smart recipe recommendations for your pet based on species, age, weight, and calories.</p>
+
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 14px;">
+                <div>
+                  <label style="font-size: 12px; font-weight: 700; margin-bottom: 4px; display: block;">Pet Name</label>
+                  <input id="recPetName" type="text" value="Bruno" style="margin: 0; padding: 9px 12px; font-size: 13px;" />
+                </div>
+                <div>
+                  <label style="font-size: 12px; font-weight: 700; margin-bottom: 4px; display: block;">Animal</label>
+                  <select id="recAnimal" style="margin: 0; padding: 9px 12px; font-size: 13px;">
+                    <option value="Dog" selected>Dog</option>
+                    <option value="Cat">Cat</option>
+                    <option value="Bird">Bird</option>
+                    <option value="Rabbit">Rabbit</option>
+                    <option value="Hamster">Hamster</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size: 12px; font-weight: 700; margin-bottom: 4px; display: block;">Age (Years)</label>
+                  <input id="recAge" type="number" value="4" step="0.5" min="0" style="margin: 0; padding: 9px 12px; font-size: 13px;" />
+                </div>
+                <div>
+                  <label style="font-size: 12px; font-weight: 700; margin-bottom: 4px; display: block;">Weight (kg)</label>
+                  <input id="recWeight" type="number" value="18" step="0.5" min="0" style="margin: 0; padding: 9px 12px; font-size: 13px;" />
+                </div>
+                <div>
+                  <label style="font-size: 12px; font-weight: 700; margin-bottom: 4px; display: block;">Calories (kcal)</label>
+                  <input id="recCalories" type="number" value="900" step="10" min="0" style="margin: 0; padding: 9px 12px; font-size: 13px;" />
+                </div>
+              </div>
+
+              <button id="recBtn" class="primary-btn" onclick="fetchSmartRecommendations()" style="margin: 0; width: 100%; font-size: 15px; font-weight: 800; border-radius: 12px; padding: 12px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <span>[ Recommend Recipes ]</span>
+              </button>
+
+              <div id="recResultsContainer" style="margin-top: 18px; display: block;">
+                <div style="border-top: 2px dashed var(--border); padding-top: 14px; margin-top: 14px;">
+                  <h4 style="font-size: 16px; font-weight: 900; color: var(--dark); margin: 0 0 12px 0;">Top 5 Recommendations</h4>
+                  <div id="recResultsList" style="display: flex; flex-direction: column; gap: 12px;"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Inventory / Stock Tracker Container -->
+            <div id="stockTrackerContainer"></div>
+
+            <div id="homemadeDashboard"></div>
 
 
 
@@ -1136,7 +1317,10 @@
                 </div>
 
                 <!-- Add Custom Task Card -->
-                <div class="card">
+                <div class="card" id="addCareTaskCard">
+                  <div id="addTaskLockNotice" style="display:none; background:rgba(255,122,0,0.12); border:1px solid var(--orange); border-radius:12px; padding:10px 14px; margin-bottom:14px; font-size:13px; font-weight:700; color:var(--dark); align-items:center; gap:8px;">
+                    🔒 Task creation & editing are locked for non-today dates. Select today's date to add or edit tasks.
+                  </div>
                   <h3 style="font-weight:900;margin-bottom:12px">➕ Add Care Task</h3>
 
                   <label>Task Title</label>
@@ -1170,7 +1354,7 @@
                       onclick="this.classList.toggle('on')"></button>
                   </div>
 
-                  <button class="primary-btn" onclick="addPlannerTask()" style="margin-top:14px">Add to Care
+                  <button id="addPlannerTaskBtn" class="primary-btn" onclick="addPlannerTask()" style="margin-top:14px">Add to Care
                     Plan</button>
                 </div>
               </div> <!-- End planner-left-col -->
@@ -1486,6 +1670,7 @@
 
     <!-- Supabase client libraries -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/api/env.js"></script>
     <script src="supabaseClient.js"></script>
 
     <!-- Chart.js for data visualization -->
@@ -1494,7 +1679,7 @@
     <!-- Recipe Database -->
     <script src="recipes.js"></script>
 
-    <script src="app2.js"></script>
+    <script src="app.js?v=1.0.3"></script>
 
 
 

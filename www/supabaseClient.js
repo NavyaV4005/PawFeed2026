@@ -13,20 +13,22 @@
 //   };
 // =================================================================
 
-const SUPABASE_URL =
-  (window.PAWFEED_CONFIG && window.PAWFEED_CONFIG.supabaseUrl) ||
-  'https://uwtyjzhlipidqxibtsqo.supabase.co';
+const SUPABASE_URL = window.PAWFEED_CONFIG && window.PAWFEED_CONFIG.supabaseUrl;
+const SUPABASE_ANON_KEY = window.PAWFEED_CONFIG && window.PAWFEED_CONFIG.supabaseAnonKey;
 
-const SUPABASE_ANON_KEY =
-  (window.PAWFEED_CONFIG && window.PAWFEED_CONFIG.supabaseAnonKey) ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3dHlqemhsaXBpZHF4aWJ0c3FvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxNDIyMjAsImV4cCI6MjA5NzcxODIyMH0.QCGZksfnBbk0dYyeT_awlzaVYw4eL_D-Z7vP7wsv4tc';
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.warn("[PawFeed] Supabase configuration not found in window.PAWFEED_CONFIG. Falling back to local development defaults.");
+}
+
+const FINAL_URL = SUPABASE_URL || 'https://uwtyjzhlipidqxibtsqo.supabase.co';
+const FINAL_ANON_KEY = SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3dHlqemhsaXBpZHF4aWJ0c3FvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxNDIyMjAsImV4cCI6MjA5NzcxODIyMH0.QCGZksfnBbk0dYyeT_awlzaVYw4eL_D-Z7vP7wsv4tc';
 
 if (typeof supabase === 'undefined' && typeof window.supabase === 'undefined') {
   console.warn('[PawFeed] Supabase CDN library not yet loaded. Load the CDN script before supabaseClient.js.');
 }
 
 const supabaseClient = window.supabase
-  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  ? window.supabase.createClient(FINAL_URL, FINAL_ANON_KEY, {
       auth: {
         detectSessionInUrl: true, // Handles OAuth redirect and password-reset deep links
         persistSession: true,

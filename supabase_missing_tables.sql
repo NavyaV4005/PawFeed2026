@@ -8,8 +8,14 @@ DROP POLICY IF EXISTS "Users can manage their own medical records" ON public.med
 CREATE POLICY "Users can manage their own medical records"
 ON public.medical_records
 FOR ALL
-USING (auth.uid() = user_id OR auth.uid() = household_id)
-WITH CHECK (auth.uid() = user_id OR auth.uid() = household_id);
+USING (
+  (household_id = (SELECT household_id FROM public.user_profiles WHERE id = auth.uid()) AND household_id IS NOT NULL)
+  OR user_id = auth.uid()
+)
+WITH CHECK (
+  (household_id = (SELECT household_id FROM public.user_profiles WHERE id = auth.uid()) AND household_id IS NOT NULL)
+  OR user_id = auth.uid()
+);
 
 -- 2. CREATE WEEKLY MEAL PLAN TABLE
 CREATE TABLE IF NOT EXISTS public.weekly_meal_plan (
@@ -27,8 +33,14 @@ ALTER TABLE public.weekly_meal_plan ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can manage their household meal plan"
 ON public.weekly_meal_plan
 FOR ALL
-USING (auth.uid() = user_id OR auth.uid() = household_id)
-WITH CHECK (auth.uid() = user_id OR auth.uid() = household_id);
+USING (
+  (household_id = (SELECT household_id FROM public.user_profiles WHERE id = auth.uid()) AND household_id IS NOT NULL)
+  OR user_id = auth.uid()
+)
+WITH CHECK (
+  (household_id = (SELECT household_id FROM public.user_profiles WHERE id = auth.uid()) AND household_id IS NOT NULL)
+  OR user_id = auth.uid()
+);
 
 -- 3. CREATE STOCK ITEMS TABLE
 CREATE TABLE IF NOT EXISTS public.stock_items (
@@ -50,5 +62,11 @@ ALTER TABLE public.stock_items ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can manage their household stock items"
 ON public.stock_items
 FOR ALL
-USING (auth.uid() = user_id OR auth.uid() = household_id)
-WITH CHECK (auth.uid() = user_id OR auth.uid() = household_id);
+USING (
+  (household_id = (SELECT household_id FROM public.user_profiles WHERE id = auth.uid()) AND household_id IS NOT NULL)
+  OR user_id = auth.uid()
+)
+WITH CHECK (
+  (household_id = (SELECT household_id FROM public.user_profiles WHERE id = auth.uid()) AND household_id IS NOT NULL)
+  OR user_id = auth.uid()
+);
