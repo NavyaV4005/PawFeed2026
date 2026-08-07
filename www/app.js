@@ -4386,6 +4386,28 @@ const USE_SUPABASE_ONLY = true;
       }
       if (tab === 'homemade') {
         if (typeof renderStockTracker === 'function') renderStockTracker();
+        // Auto-fill Smart Recipe form with active pet data
+        try {
+          const pets = getPets();
+          const activePet = pets && pets.length > 0 ? pets[getActivePetIdx()] : null;
+          if (activePet) {
+            const nameEl = document.getElementById('recPetName');
+            const animalEl = document.getElementById('recAnimal');
+            const ageEl = document.getElementById('recAge');
+            const weightEl = document.getElementById('recWeight');
+            if (nameEl) nameEl.value = activePet.name || 'My Pet';
+            if (animalEl && activePet.type) {
+              const speciesMap = { dog: 'Dog', cat: 'Cat', bird: 'Bird', rabbit: 'Rabbit', hamster: 'Hamster' };
+              const mapped = speciesMap[activePet.type.toLowerCase()] || activePet.type;
+              const opt = Array.from(animalEl.options).find(o => o.value === mapped);
+              if (opt) animalEl.value = mapped;
+            }
+            if (ageEl && activePet.age) ageEl.value = parseFloat(activePet.age) || 4;
+            if (weightEl && activePet.weight) weightEl.value = parseFloat(activePet.weight) || 18;
+            // Re-run recommendations with real pet data
+            if (typeof fetchSmartRecommendations === 'function') fetchSmartRecommendations();
+          }
+        } catch (e) { /* silently ignore */ }
       }
       if (tab === 'tracker') {
         if (typeof renderTrackerTab === 'function') renderTrackerTab(getPets(), getActivePetIdx(), isNoPet());
