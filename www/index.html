@@ -1670,7 +1670,11 @@
 
     <!-- Supabase client libraries -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="/api/env.js"></script>
+    <script>
+      if (!window.location.hostname.includes('github.io')) {
+        document.write('<script src="/api/env.js"><\/script>');
+      }
+    </script>
     <script src="supabaseClient.js"></script>
 
     <!-- Chart.js for data visualization -->
@@ -1679,7 +1683,7 @@
     <!-- Recipe Database -->
     <script src="recipes.js"></script>
 
-    <script src="app.js?v=1.0.7"></script>
+    <script src="app.js?v=1.0.8"></script>
 
 
 
