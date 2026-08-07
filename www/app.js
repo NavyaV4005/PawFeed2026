@@ -9527,12 +9527,17 @@ window.renderRecordsTab = function() {
 window.lastModelRecommendations = [];
 
 // ─── Species parameters for feature normalization ───────────────────────────
+//
+// maxProtein: approximate max grams of protein per serving for this species.
+//   Used as the weight dimension — larger/heavier animals need higher-protein
+//   recipes, so user.weight maps to recipe.proteinDensity in the KNN.
+//
 const _REC_SPECIES_PARAMS = {
-    dog:     { maxAge: 20,  maxWeight: 80,   maxCalPerServing: 600,  mealsPerDay: 2 },
-    cat:     { maxAge: 25,  maxWeight: 15,   maxCalPerServing: 300,  mealsPerDay: 2 },
-    bird:    { maxAge: 50,  maxWeight: 2,    maxCalPerServing: 150,  mealsPerDay: 3 },
-    rabbit:  { maxAge: 12,  maxWeight: 10,   maxCalPerServing: 200,  mealsPerDay: 2 },
-    hamster: { maxAge: 4,   maxWeight: 0.25, maxCalPerServing: 50,   mealsPerDay: 2 }
+    dog:     { maxAge: 20,  maxWeight: 80,   maxCalPerServing: 600,  mealsPerDay: 2, maxProtein: 25 },
+    cat:     { maxAge: 25,  maxWeight: 15,   maxCalPerServing: 300,  mealsPerDay: 2, maxProtein: 20 },
+    bird:    { maxAge: 50,  maxWeight: 2,    maxCalPerServing: 150,  mealsPerDay: 3, maxProtein: 12 },
+    rabbit:  { maxAge: 12,  maxWeight: 10,   maxCalPerServing: 200,  mealsPerDay: 2, maxProtein: 18 },
+    hamster: { maxAge: 4,   maxWeight: 0.25, maxCalPerServing: 50,   mealsPerDay: 2, maxProtein:  8 }
 };
 
 // Map recipe ageGroup string → continuous [0,1] life-stage score
@@ -9551,13 +9556,24 @@ function _parseNutVal(str) {
 }
 
 /**
- * Real in-browser KNN recommender.
- * Uses weighted Euclidean distance over three normalized features:
- *   • age       (life-stage: Baby ↔ Senior)
- *   • calorie   (per-meal target vs recipe calorie density)
- *   • weight    (body size proxy via calorie density)
+ * True 3-dimensional KNN recommender.
  *
- * Changing ANY of the three inputs changes the ranked output.
+ * Three INDEPENDENT feature axes:
+ *   Axis 1 — AGE    : user age (years)        ↔ recipe ageGroup (Baby/Adult/Senior)
+ *   Axis 2 — CALORIE: user calories/meal      ↔ recipe calorie density per serving
+ *   Axis 3 — WEIGHT : user body weight (kg)   ↔ recipe protein density (g protein)
+ *
+ * Axis 3 is intentionally protein density, NOT calorie density again.
+ * Protein content is structurally uncorrelated with calories in the dataset:
+ *   a low-cal recipe can be high-protein (e.g. fish + greens)
+ *   a high-cal recipe can be low-protein (e.g. grain-heavy)
+ * This guarantees weight changes move the user vector independently of calories.
+ *
+ * Result: ALL THREE inputs (age, weight, calories) independently shift which
+ * recipes are closest, satisfying:
+ *   Dog 2yr 10kg 700kcal ≠ Dog 2yr 20kg 700kcal (different weight → different protein target)
+ *   Dog 2yr 20kg 700kcal ≠ Dog 5yr 20kg 700kcal (different age   → different life stage)
+ *   Dog 5yr 20kg 700kcal ≠ Dog 5yr 20kg 900kcal (different cal   → different calorie density)
  */
 function getRecommendedRecipesList(species, name, age, weight, calories) {
     const sp = (species || 'Dog').toLowerCase();
@@ -9568,50 +9584,61 @@ function getRecommendedRecipesList(species, name, age, weight, calories) {
         (window.PAWFEED_RECIPES && window.PAWFEED_RECIPES[sp]) ||
         (window.PAWFEED_RECIPES && window.PAWFEED_RECIPES.dog) || [];
 
-    // ── Normalize user inputs ───────────────────────────────────────────────
-    const ageF    = parseFloat(age)     || 1;
-    const weightF = parseFloat(weight)  || 1;
-    const calF    = parseFloat(calories)|| 100;
+    // ── Normalize user inputs to [0,1] ──────────────────────────────────────
+    const ageF    = Math.max(0.01, parseFloat(age)     || 1);
+    const weightF = Math.max(0.01, parseFloat(weight)  || 1);
+    const calF    = Math.max(1,    parseFloat(calories) || 100);
 
-    // Clamp + normalize to [0,1]
-    const userAgeNorm    = Math.min(1, Math.max(0, ageF    / params.maxAge));
-    const userWeightNorm = Math.min(1, Math.max(0, weightF / params.maxWeight));
-    const calPerMeal     = calF / params.mealsPerDay;
-    const userCalNorm    = Math.min(1, Math.max(0, calPerMeal / params.maxCalPerServing));
+    // Axis 1: age normalized against species life expectancy
+    const userAgeNorm = Math.min(1, ageF / params.maxAge);
+
+    // Axis 2: daily calories → per-meal target → normalized against max serving
+    const calPerMeal  = calF / params.mealsPerDay;
+    const userCalNorm = Math.min(1, calPerMeal / params.maxCalPerServing);
+
+    // Axis 3: body weight normalized — maps to PROTEIN DENSITY target.
+    //   Heavier animal → needs higher-protein recipes per serving.
+    const userWeightNorm = Math.min(1, weightF / params.maxWeight);
 
     // ── Feature weights ─────────────────────────────────────────────────────
-    // Age is most important (baby vs senior diets differ the most).
-    // Calorie match drives portion suitability.
-    // Weight acts as a body-size proxy (bigger pets → higher calorie density).
-    const W_AGE    = 2.0;
-    const W_CAL    = 1.5;
-    const W_WEIGHT = 1.0;
+    const W_AGE    = 2.0;  // life-stage is the strongest dietary signal
+    const W_CAL    = 1.5;  // calorie match determines portion suitability
+    const W_WEIGHT = 1.2;  // protein density (increased to make weight impactful)
 
     // ── Score every recipe via weighted Euclidean distance ─────────────────
     const scored = dataset.map((recipe, rawIdx) => {
-        const recCal        = _parseNutVal(recipe.nutrition?.calories) || 100;
-        const recCalNorm    = Math.min(1, recCal / params.maxCalPerServing);
-        const recAgeNorm    = _recAgeGroupNorm(recipe.ageGroup);
-        // Weight proxy: higher-calorie recipes suit larger/heavier animals
-        const recWeightProxy = recCalNorm;
+        const nutr = recipe.nutrition || {};
+
+        // Recipe Axis 1: life-stage score
+        const recAgeNorm = _recAgeGroupNorm(recipe.ageGroup);
+
+        // Recipe Axis 2: calorie density (calories per serving)
+        const recCal     = _parseNutVal(nutr.calories) || 100;
+        const recCalNorm = Math.min(1, recCal / params.maxCalPerServing);
+
+        // Recipe Axis 3: protein density — INDEPENDENT of calorie axis
+        //   High-protein recipes → suit bigger/heavier animals
+        //   Low-protein  recipes → suit smaller/lighter animals
+        const recProtein     = _parseNutVal(nutr.protein) || 0;
+        const recProteinNorm = Math.min(1, recProtein / params.maxProtein);
 
         const dist = Math.sqrt(
             W_AGE    * Math.pow(userAgeNorm    - recAgeNorm,    2) +
             W_CAL    * Math.pow(userCalNorm    - recCalNorm,    2) +
-            W_WEIGHT * Math.pow(userWeightNorm - recWeightProxy, 2)
+            W_WEIGHT * Math.pow(userWeightNorm - recProteinNorm, 2)
         );
+
         return { recipe, dist, rawIdx };
     });
 
-    // Sort ascending (closest first) and take top 5
+    // Sort ascending (closest = best match) and take top 5
     scored.sort((a, b) => a.dist - b.dist);
     const top5 = scored.slice(0, 5);
 
     // ── Convert distances → realistic match percentages ────────────────────
-    // Closest recipe → 98%, furthest of top 5 → 85%
-    const minDist = top5[0]?.dist ?? 0;
-    const maxDist = top5[top5.length - 1]?.dist ?? 1;
-    const distRange = maxDist - minDist || 1;
+    const minDist   = top5[0]?.dist ?? 0;
+    const maxDist   = top5[top5.length - 1]?.dist ?? 1;
+    const distRange = (maxDist - minDist) || 1;
 
     const ranks = ['🥇', '🥈', '🥉', '4th', '5th'];
 
@@ -9619,12 +9646,12 @@ function getRecommendedRecipesList(species, name, age, weight, calories) {
         const r    = item.recipe;
         const nutr = r.nutrition || {};
 
-        // Scale distance → match%: 0 distance → 98%, maxRange distance → 85%
+        // Scale distance → match%: closest → 98%, furthest of top5 → 85%
         const matchPct = Math.round(98 - ((item.dist - minDist) / distRange) * 13);
         const safePct  = Math.max(85, Math.min(99, matchPct));
 
-        // Ingredients: split "197g Pork Loin" → qty="197g", name="Pork Loin"
-        const rawIngredients = Array.isArray(r.ingredients) ? r.ingredients : [];
+        // Split "197g Pork Loin" → qty "197g", name "Pork Loin"
+        const rawIngredients  = Array.isArray(r.ingredients) ? r.ingredients : [];
         const ingredientNames = rawIngredients.map(ing => {
             const m = String(ing).match(/^(\d+g?)\s+(.+)$/i);
             return m ? m[2].trim() : ing;
@@ -9635,26 +9662,34 @@ function getRecommendedRecipesList(species, name, age, weight, calories) {
         });
 
         return {
-            rank:         idx + 1,
-            badge:        ranks[idx],
-            id:           r.id || `${sp.toUpperCase()}_${item.rawIdx}`,
-            recipe_name:  r.name || 'Healthy Recipe',
+            rank:          idx + 1,
+            badge:         ranks[idx],
+            id:            r.id || `${sp.toUpperCase()}_${item.rawIdx}`,
+            recipe_name:   r.name || 'Healthy Recipe',
             match_percent: safePct,
-            match:        `${safePct}% Match`,
-            calories:     _parseNutVal(nutr.calories),
-            protein:      nutr.protein  ? String(nutr.protein).replace(' g','g')  : '0g',
-            fat:          nutr.fat      ? String(nutr.fat).replace(' g','g')      : '0g',
-            carbs:        nutr.fiber    ? String(nutr.fiber).replace(' g','g')    : '0g',
-            cook_time:    r.cookTime || r.cook_time || '20 mins',
-            difficulty:   r.difficulty || 'Easy',
-            benefits:     Array.isArray(r.benefits) ? r.benefits : [],
-            conditions:   [],
-            ingredients:  ingredientNames,
-            quantities:   ingredientQtys,
-            steps:        Array.isArray(r.steps) ? r.steps : ['Prepare and serve fresh.']
+            match:         `${safePct}% Match`,
+            calories:      _parseNutVal(nutr.calories),
+            protein:       nutr.protein ? String(nutr.protein).replace(' g', 'g') : '0g',
+            fat:           nutr.fat     ? String(nutr.fat).replace(' g', 'g')     : '0g',
+            carbs:         nutr.fiber   ? String(nutr.fiber).replace(' g', 'g')   : '0g',
+            cook_time:     r.cookTime   || r.cook_time || '20 mins',
+            difficulty:    r.difficulty || 'Easy',
+            benefits:      Array.isArray(r.benefits) ? r.benefits : [],
+            conditions:    [],
+            ingredients:   ingredientNames,
+            quantities:    ingredientQtys,
+            steps:         Array.isArray(r.steps) ? r.steps : ['Prepare and serve fresh.']
         };
     });
 }
+
+
+
+
+
+
+
+
 
 
 window.fetchSmartRecommendations = async function() {
