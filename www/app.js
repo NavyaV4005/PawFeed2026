@@ -410,29 +410,15 @@ const USE_SUPABASE_ONLY = true;
       showToast("Syncing with cloud... ☁️");
       
       try {
-        // Fire user_profiles AND all other tables simultaneously — no sequential round trips
+        // Fire user_profiles and basic Home-screen tables simultaneously — fits within browser concurrent limit of 6
         const [
           profileRes,
-          petsRes, logsRes, stockRes, expensesRes, postsRes, tasksRes,
-          moodsRes, medicalRecordsRes, medicalReportsRes, sleepsRes, galleryRes, weightsRes, recipesRes,
-          medsRes, vetLogsRes, mealPlanRes, favoritesRes
+          petsRes, logsRes, tasksRes, mealPlanRes, favoritesRes
         ] = await Promise.all([
           window.supabaseClient.from('user_profiles').select('*').eq('id', userId).maybeSingle(),
           window.supabaseClient.from('pets').select('*').or(`user_id.eq.${userId},household_id.eq.${userId}`),
           window.supabaseClient.from('feeding_logs').select('*').or(`user_id.eq.${userId},household_id.eq.${userId}`),
-          window.supabaseClient.from('stock_items').select('*').or(`user_id.eq.${userId},household_id.eq.${userId}`),
-          window.supabaseClient.from('expenses').select('*').or(`user_id.eq.${userId},household_id.eq.${userId}`),
-          window.supabaseClient.from('community_posts').select('*').order('id', { ascending: false }),
           window.supabaseClient.from('care_tasks').select('*').or(`user_id.eq.${userId},household_id.eq.${userId}`),
-          window.supabaseClient.from('mood_logs').select('*').or(`user_id.eq.${userId},household_id.eq.${userId}`),
-          window.supabaseClient.from('medical_records').select('*').or(`user_id.eq.${userId},household_id.eq.${userId}`),
-          window.supabaseClient.from('medical_reports').select('*').or(`user_id.eq.${userId},household_id.eq.${userId}`),
-          window.supabaseClient.from('sleep_logs').select('*').or(`user_id.eq.${userId},household_id.eq.${userId}`),
-          window.supabaseClient.from('pet_gallery').select('*').or(`user_id.eq.${userId},household_id.eq.${userId}`),
-          window.supabaseClient.from('weight_history').select('*').or(`user_id.eq.${userId},household_id.eq.${userId}`),
-          window.supabaseClient.from('custom_recipes').select('*').or(`user_id.eq.${userId},household_id.eq.${userId}`),
-          window.supabaseClient.from('meds').select('*').or(`user_id.eq.${userId},household_id.eq.${userId}`),
-          window.supabaseClient.from('vet_logs').select('*').or(`user_id.eq.${userId},household_id.eq.${userId}`),
           Promise.resolve(window.supabaseClient.from('weekly_meal_plan').select('*').eq('household_id', userId).maybeSingle()).catch(e => ({data: null, error: e})),
           Promise.resolve(window.supabaseClient.from('recipe_favorites').select('*').eq('household_id', userId)).catch(e => ({data: null, error: e}))
         ]);
@@ -454,40 +440,15 @@ const USE_SUPABASE_ONLY = true;
         if (hhDisplay) hhDisplay.value = currentHouseholdId;
 
         // Re-fetch household-scoped tables only if household_id differs from userId
-        // (household member fetching — pets/logs could have a different household owner)
         if (currentHouseholdId !== userId) {
-          const [hhPets, hhLogs, hhStock, hhExpenses, hhTasks, hhMoods,
-                 hhMedRec, hhMedRep, hhSleep, hhGallery, hhWeights,
-                 hhRecipes, hhMeds, hhVetLogs] = await Promise.all([
+          const [hhPets, hhLogs, hhTasks] = await Promise.all([
             window.supabaseClient.from('pets').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
             window.supabaseClient.from('feeding_logs').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
-            window.supabaseClient.from('stock_items').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
-            window.supabaseClient.from('expenses').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
-            window.supabaseClient.from('care_tasks').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
-            window.supabaseClient.from('mood_logs').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
-            window.supabaseClient.from('medical_records').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
-            window.supabaseClient.from('medical_reports').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
-            window.supabaseClient.from('sleep_logs').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
-            window.supabaseClient.from('pet_gallery').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
-            window.supabaseClient.from('weight_history').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
-            window.supabaseClient.from('custom_recipes').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
-            window.supabaseClient.from('meds').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
-            window.supabaseClient.from('vet_logs').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`)
+            window.supabaseClient.from('care_tasks').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`)
           ]);
-          Object.assign(petsRes, hhPets);
-          Object.assign(logsRes, hhLogs);
-          Object.assign(stockRes, hhStock);
-          Object.assign(expensesRes, hhExpenses);
-          Object.assign(tasksRes, hhTasks);
-          Object.assign(moodsRes, hhMoods);
-          Object.assign(medicalRecordsRes, hhMedRec);
-          Object.assign(medicalReportsRes, hhMedRep);
-          Object.assign(sleepsRes, hhSleep);
-          Object.assign(galleryRes, hhGallery);
-          Object.assign(weightsRes, hhWeights);
-          Object.assign(recipesRes, hhRecipes);
-          Object.assign(medsRes, hhMeds);
-          Object.assign(vetLogsRes, hhVetLogs);
+          if (hhPets.data) petsRes.data = hhPets.data;
+          if (hhLogs.data) logsRes.data = hhLogs.data;
+          if (hhTasks.data) tasksRes.data = hhTasks.data;
         }
 
         if (petsRes.data) {
@@ -542,157 +503,20 @@ const USE_SUPABASE_ONLY = true;
           });
         }
 
-        if (stockRes.data) {
-          pawCache.stockItems = stockRes.data.map(s => ({
-            id: s.id,
-            name: s.name,
-            type: s.type,
-            quantity: parseFloat(s.quantity),
-            unit: s.unit,
-            threshold: parseFloat(s.threshold),
-            decrementAmount: parseFloat(s.decrement_amount)
-          }));
+        if (tasksRes.data) {
+          pawCache.tasks = tasksRes.data;
         }
 
-        if (expensesRes.data) {
-          pawCache.expenses = expensesRes.data.map(e => ({
-            id: e.id,
-            date: e.date,
-            category: e.category,
-            amount: parseFloat(e.amount),
-            desc: e.notes
-          }));
-        }
-
-        if (postsRes.data) {
-          pawCache.communityPosts = postsRes.data.map(p => {
-            if (p.payload && Object.keys(p.payload).length > 0) {
-              return { ...p.payload, dbId: p.id, user_id: p.user_id };
-            }
-            return { id: p.id, dbId: p.id, user_id: p.user_id, type: 'tip', caption: p.content || '', image: p.image_url, author: 'PawFeed User', likes: 0, date: p.created_at };
-          });
-        }
-
-        // (Cart, scan history, and orders removed — tabs no longer used)
-
-        if (moodsRes.data) {
-          pawCache.moodLog = moodsRes.data.map(m => {
-            const petIdx = pawCache.pets.findIndex(p => p.id === m.pet_id);
-            return {
-              petIdx: petIdx >= 0 ? petIdx : 0,
-              date: m.date,
-              label: m.label
-            };
-          });
-        }
-
-        if (medicalRecordsRes.data && medicalRecordsRes.data.length > 0) {
-          pawCache.medicalRecords = medicalRecordsRes.data;
-        } else if (profileRes.data && profileRes.data.settings && profileRes.data.settings.medical_records) {
-          // Restore from fallback if main table failed or is empty
-          pawCache.medicalRecords = profileRes.data.settings.medical_records;
-        }
-        if (medicalReportsRes.data) {
-          pawCache.medicalReports = medicalReportsRes.data;
-        }
-
-        if (medsRes.data) {
-          pawCache.meds = medsRes.data.map(m => ({
-            id: m.id,
-            petIdx: 0,
-            petName: 'General',
-            name: m.name,
-            dose: m.dosage || '',
-            time: m.frequency || '',
-            notes: '',
-            active: true
-          }));
-        }
-
-        if (vetLogsRes.data) {
-          pawCache.vetLog = vetLogsRes.data.map(v => {
-            const petIdx = pawCache.pets.findIndex(p => p.id === v.pet_id);
-            const notesParts = (v.notes || '').split('\n');
-            const reason = notesParts[0] || 'Checkup';
-            const notes = notesParts.slice(1).join('\n');
-            return {
-              id: v.id,
-              petIdx: petIdx >= 0 ? petIdx : 0,
-              petName: pawCache.pets[petIdx]?.name || 'General',
-              date: v.date,
-              clinic: v.clinic || '',
-              reason: reason,
-              notes: notes
-            };
-          });
-        }
-
-        if (sleepsRes.data) {
-          pawCache.sleepLog = sleepsRes.data.map(s => {
-            const petIdx = pawCache.pets.findIndex(p => p.id === s.pet_id);
-            return {
-              petIdx: petIdx >= 0 ? petIdx : 0,
-              date: s.date,
-              hours: parseFloat(s.hours),
-              quality: s.quality
-            };
-          });
-        }
-
-        pawCache.gallery = {};
-        if (galleryRes.data) {
-          galleryRes.data.forEach(g => {
-            const petIdx = pawCache.pets.findIndex(p => p.id === g.pet_id);
-            const idxKey = petIdx >= 0 ? petIdx : 0;
-            if (!pawCache.gallery[idxKey]) pawCache.gallery[idxKey] = [];
-            pawCache.gallery[idxKey].push({
-              id: g.id,
-              src: g.image_url,
-              image: g.image_url,
-              date: g.created_at ? g.created_at.slice(0, 10) : '',
-              time: g.created_at
-            });
-          });
-        }
-
-        pawCache.weightHistory = {};
-        if (weightsRes.data) {
-          weightsRes.data.forEach(w => {
-            const petIdx = pawCache.pets.findIndex(p => p.id === w.pet_id);
-            const idxKey = petIdx >= 0 ? petIdx : 0;
-            if (!pawCache.weightHistory[idxKey]) pawCache.weightHistory[idxKey] = [];
-            pawCache.weightHistory[idxKey].push({ date: w.date, weight: parseFloat(w.weight) });
-          });
-        }
-
-        if (recipesRes.data) {
-          pawCache.customRecipes = recipesRes.data.map(r => ({
-            id: r.id,
-            title: r.name,
-            name: r.name,
-            ingredients: r.ingredients || [],
-            steps: r.steps || [],
-            notes: r.notes || '',
-            pet: ['Dog'],
-            type: 'Veg',
-            cat: 'Meal',
-            time: 15,
-            cookTime: '15 mins',
-            diff: 'Easy',
-            cal: 100,
-            protein: 10,
-            fat: 5,
-            fiber: 2,
-            carbohydrates: 20,
-            suitableAgeGroup: 'All',
-            healthConditionCompatibility: 'Healthy',
-            vetTip: '',
-            vet: false,
-            benefits: ['Nutritious home-cooked food.']
-          }));
-          (!USE_SUPABASE_ONLY && localStorage.setItem('pawfeed_custom_recipes', JSON.stringify(pawCache.customRecipes)));
-        }
-
+        // Initialize empty lazy caches to prevent null reference errors on startup
+        pawCache.stockItems = [];
+        pawCache.expenses = [];
+        pawCache.communityPosts = [];
+        pawCache.moodLog = [];
+        pawCache.medicalRecords = [];
+        pawCache.medicalReports = [];
+        pawCache.meds = [];
+        pawCache.vetLog = [];
+        pawCache.sleepLog = [];
         if (profileRes.data) {
           const p = profileRes.data;
           pawCache.recipes = p.recipe_store || pawCache.recipes || {};
@@ -723,7 +547,6 @@ const USE_SUPABASE_ONLY = true;
         if (tasksRes.data) {
           // Deduplicate: multiple DB rows may exist for same logical task (string ID). Keep latest.
           const seen = new Map();
-          // Sort ascending so the last (highest id = most recent) overwrites earlier ones
           const sorted = [...tasksRes.data].sort((a, b) => a.id - b.id);
           sorted.forEach(t => {
             const petIdx = pawCache.pets.findIndex(p => p.id === t.pet_id);
@@ -741,7 +564,6 @@ const USE_SUPABASE_ONLY = true;
                 completedDates: t.completed ? [] : []
               };
             }
-            // Use the payload's original string ID as dedup key (or numeric id as fallback)
             const dedupKey = (t.payload && t.payload.id) ? String(t.payload.id) : String(t.id);
             seen.set(dedupKey, obj);
           });
@@ -752,17 +574,13 @@ const USE_SUPABASE_ONLY = true;
         if (!_dummyPurgedThisSession && !localStorage.getItem('dummy_purged_v4')) {
           _dummyPurgedThisSession = true;
           localStorage.setItem('dummy_purged_v4', 'true');
-          // Remove old purge keys too
           localStorage.removeItem('dummy_purged_v3');
           console.log("Purging old dummy data v4 (one-time)...");
-          
           pawCache.stockItems = [];
           localStorage.removeItem('pawStock');
           if (typeof saveStockItems === 'function') saveStockItems([]);
-
           pawCache.expenses = [];
           localStorage.removeItem('pawExpenses');
-          
           pawCache.weeklyPlan = {
             Mon: { breakfast: null, lunch: null, dinner: null },
             Tue: { breakfast: null, lunch: null, dinner: null },
@@ -782,6 +600,192 @@ const USE_SUPABASE_ONLY = true;
         showToast("Sync error. Using local cached data.");
       }
     }
+
+    // ─── LAZY LOADING SYSTEM FOR SUB-PAGES ───────────────────────────
+    const _loadedFeatures = {
+      home: true,
+      social: false,
+      homemade: false,
+      tracker: false,
+      care: false
+    };
+
+    async function lazyLoadFeature(feature) {
+      if (!window.supabaseClient || !currentUser) return;
+      if (_loadedFeatures[feature]) return;
+
+      const userId = currentUser.id;
+      showToast(`Loading ${feature} records... ⏳`);
+
+      try {
+        if (feature === 'social') {
+          const { data } = await window.supabaseClient.from('community_posts').select('*').order('id', { ascending: false });
+          if (data) {
+            pawCache.communityPosts = data.map(p => {
+              if (p.payload && Object.keys(p.payload).length > 0) {
+                return { ...p.payload, dbId: p.id, user_id: p.user_id };
+              }
+              return { id: p.id, dbId: p.id, user_id: p.user_id, type: 'tip', caption: p.content || '', image: p.image_url, author: 'PawFeed User', likes: 0, date: p.created_at };
+            });
+            (!USE_SUPABASE_ONLY && localStorage.setItem('pawCommunityPosts', JSON.stringify(pawCache.communityPosts)));
+          }
+        }
+        else if (feature === 'homemade') {
+          const [recipesRes, favoritesRes] = await Promise.all([
+            window.supabaseClient.from('custom_recipes').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
+            window.supabaseClient.from('recipe_favorites').select('*').eq('household_id', currentHouseholdId)
+          ]);
+          if (recipesRes.data) {
+            pawCache.customRecipes = recipesRes.data.map(r => ({
+              id: r.id,
+              title: r.name,
+              name: r.name,
+              ingredients: r.ingredients || [],
+              steps: r.steps || [],
+              notes: r.notes || '',
+              pet: ['Dog'],
+              type: 'Veg',
+              cat: 'Meal',
+              time: 15,
+              cookTime: '15 mins',
+              diff: 'Easy',
+              cal: 100,
+              protein: 10,
+              fat: 5,
+              fiber: 2,
+              carbohydrates: 20,
+              suitableAgeGroup: 'All',
+              healthConditionCompatibility: 'Healthy',
+              vetTip: '',
+              vet: false,
+              benefits: ['Nutritious home-cooked food.']
+            }));
+            (!USE_SUPABASE_ONLY && localStorage.setItem('pawfeed_custom_recipes', JSON.stringify(pawCache.customRecipes)));
+          }
+          if (favoritesRes.data) {
+            pawCache.recipeFavorites = favoritesRes.data.map(f => f.recipe_id || f.id);
+            localStorage.setItem('pawfeed_recipe_favorites', JSON.stringify(pawCache.recipeFavorites));
+          }
+        }
+        else if (feature === 'tracker') {
+          const [expensesRes, stockRes] = await Promise.all([
+            window.supabaseClient.from('expenses').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
+            window.supabaseClient.from('stock_items').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`)
+          ]);
+          if (expensesRes.data) {
+            pawCache.expenses = expensesRes.data.map(e => ({
+              id: e.id,
+              date: e.date,
+              category: e.category,
+              amount: parseFloat(e.amount),
+              desc: e.notes
+            }));
+          }
+          if (stockRes.data) {
+            pawCache.stockItems = stockRes.data.map(s => ({
+              id: s.id,
+              name: s.name,
+              type: s.type,
+              quantity: parseFloat(s.quantity),
+              unit: s.unit,
+              threshold: parseFloat(s.threshold),
+              decrementAmount: parseFloat(s.decrement_amount)
+            }));
+          }
+        }
+        else if (feature === 'care') {
+          const [moodsRes, medRec, medRep, sleepRes, galleryRes, weightRes, medsRes, vetRes] = await Promise.all([
+            window.supabaseClient.from('mood_logs').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
+            window.supabaseClient.from('medical_records').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
+            window.supabaseClient.from('medical_reports').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
+            window.supabaseClient.from('sleep_logs').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
+            window.supabaseClient.from('pet_gallery').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
+            window.supabaseClient.from('weight_history').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
+            window.supabaseClient.from('meds').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
+            window.supabaseClient.from('vet_logs').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`)
+          ]);
+
+          if (moodsRes.data) {
+            pawCache.moodLog = moodsRes.data.map(m => {
+              const petIdx = pawCache.pets.findIndex(p => p.id === m.pet_id);
+              return { petIdx: petIdx >= 0 ? petIdx : 0, date: m.date, label: m.label };
+            });
+          }
+          if (medRec.data) {
+            pawCache.medicalRecords = medRec.data;
+          }
+          if (medRep.data) {
+            pawCache.medicalReports = medRep.data;
+          }
+          if (sleepRes.data) {
+            pawCache.sleepLog = sleepRes.data.map(s => {
+              const petIdx = pawCache.pets.findIndex(p => p.id === s.pet_id);
+              return { petIdx: petIdx >= 0 ? petIdx : 0, date: s.date, hours: parseFloat(s.hours), quality: s.quality };
+            });
+          }
+          pawCache.gallery = {};
+          if (galleryRes.data) {
+            galleryRes.data.forEach(g => {
+              const petIdx = pawCache.pets.findIndex(p => p.id === g.pet_id);
+              const idxKey = petIdx >= 0 ? petIdx : 0;
+              if (!pawCache.gallery[idxKey]) pawCache.gallery[idxKey] = [];
+              pawCache.gallery[idxKey].push({
+                id: g.id,
+                src: g.image_url,
+                image: g.image_url,
+                date: g.created_at ? g.created_at.slice(0, 10) : '',
+                time: g.created_at
+              });
+            });
+          }
+          pawCache.weightHistory = {};
+          if (weightRes.data) {
+            weightRes.data.forEach(w => {
+              const petIdx = pawCache.pets.findIndex(p => p.id === w.pet_id);
+              const idxKey = petIdx >= 0 ? petIdx : 0;
+              if (!pawCache.weightHistory[idxKey]) pawCache.weightHistory[idxKey] = [];
+              pawCache.weightHistory[idxKey].push({ date: w.date, weight: parseFloat(w.weight) });
+            });
+          }
+          if (medsRes.data) {
+            pawCache.meds = medsRes.data.map(m => ({
+              id: m.id,
+              petIdx: 0,
+              petName: 'General',
+              name: m.name,
+              dose: m.dosage || '',
+              time: m.frequency || '',
+              notes: '',
+              active: true
+            }));
+          }
+          if (vetRes.data) {
+            pawCache.vetLog = vetRes.data.map(v => {
+              const petIdx = pawCache.pets.findIndex(p => p.id === v.pet_id);
+              const notesParts = (v.notes || '').split('\n');
+              const reason = notesParts[0] || 'Checkup';
+              const notes = notesParts.slice(1).join('\n');
+              return {
+                id: v.id,
+                petIdx: petIdx >= 0 ? petIdx : 0,
+                petName: pawCache.pets[petIdx]?.name || 'General',
+                date: v.date,
+                clinic: v.clinic || '',
+                reason: reason,
+                notes: notes
+              };
+            });
+          }
+        }
+
+        _loadedFeatures[feature] = true;
+        showToast(`Sync complete for ${feature}! ✅`);
+        refreshAllUI();
+      } catch (err) {
+        console.error(`Failed to lazy load ${feature}:`, err);
+      }
+    }
+
 
     async function callAI(endpoint, payload) {
       showToast("AI is thinking... 🐾");
@@ -4448,6 +4452,12 @@ const USE_SUPABASE_ONLY = true;
       const snav = document.getElementById('snav-' + tab);
       if (snav) snav.classList.add('active');
 
+      // Lazy load database tables dynamically on tab open
+      if (tab === 'social') lazyLoadFeature('social');
+      if (tab === 'homemade') lazyLoadFeature('homemade');
+      if (tab === 'tracker') lazyLoadFeature('tracker');
+      if (tab === 'care') lazyLoadFeature('care');
+
       if (tab === 'profile') {
         renderGalleryTab();
         renderBirthdayTab();
@@ -4504,6 +4514,13 @@ const USE_SUPABASE_ONLY = true;
       // Desktop sidebar nav
       const snav = document.getElementById('snav-combo-' + combo);
       if (snav) snav.classList.add('active');
+
+      // Lazy load database tables dynamically on combo open
+      if (combo === 'social') lazyLoadFeature('social');
+      if (combo === 'homemade') lazyLoadFeature('homemade');
+      if (combo === 'tracker') lazyLoadFeature('tracker');
+      if (combo === 'care') lazyLoadFeature('care');
+
       switchComboSub(combo, defaultSub);
     }
 
