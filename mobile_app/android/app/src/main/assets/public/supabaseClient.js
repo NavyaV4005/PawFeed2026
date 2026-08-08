@@ -13,20 +13,22 @@
 //   };
 // =================================================================
 
-const SUPABASE_URL =
-  (window.PAWFEED_CONFIG && window.PAWFEED_CONFIG.supabaseUrl) ||
-  'https://uwtyjzhlipidqxibtsqo.supabase.co';
+const SUPABASE_URL = window.PAWFEED_CONFIG && window.PAWFEED_CONFIG.supabaseUrl;
+const SUPABASE_ANON_KEY = window.PAWFEED_CONFIG && window.PAWFEED_CONFIG.supabaseAnonKey;
 
-const SUPABASE_ANON_KEY =
-  (window.PAWFEED_CONFIG && window.PAWFEED_CONFIG.supabaseAnonKey) ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3dHlqemhsaXBpZHF4aWJ0c3FvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxNDIyMjAsImV4cCI6MjA5NzcxODIyMH0.QCGZksfnBbk0dYyeT_awlzaVYw4eL_D-Z7vP7wsv4tc';
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.warn("[PawFeed] Supabase configuration not found in window.PAWFEED_CONFIG. Falling back to local development defaults.");
+}
+
+const FINAL_URL = SUPABASE_URL || 'https://uwtyjzhlipidqxibtsqo.supabase.co';
+const FINAL_ANON_KEY = SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3dHlqemhsaXBpZHF4aWJ0c3FvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxNDIyMjAsImV4cCI6MjA5NzcxODIyMH0.QCGZksfnBbk0dYyeT_awlzaVYw4eL_D-Z7vP7wsv4tc';
 
 if (typeof supabase === 'undefined' && typeof window.supabase === 'undefined') {
   console.warn('[PawFeed] Supabase CDN library not yet loaded. Load the CDN script before supabaseClient.js.');
 }
 
 const supabaseClient = window.supabase
-  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  ? window.supabase.createClient(FINAL_URL, FINAL_ANON_KEY, {
       auth: {
         detectSessionInUrl: true, // Handles OAuth redirect and password-reset deep links
         persistSession: true,
@@ -38,24 +40,14 @@ const supabaseClient = window.supabase
 window.supabaseClient = supabaseClient;
 
 // ==================== AUTH STATE CHANGE ====================
-// Listen for PASSWORD_RECOVERY events (deep-link redirect after "Reset Password" email)
-if (supabaseClient) {
-  supabaseClient.auth.onAuthStateChange((event, session) => {
-    if (event === 'PASSWORD_RECOVERY') {
-      console.log('[PawFeed Auth] PASSWORD_RECOVERY detected — showing update password modal.');
-      const modal = document.getElementById('updatePasswordModal');
-      if (modal) modal.classList.remove('hidden');
-    }
-    if (event === 'SIGNED_IN' && session) {
-      console.log('[PawFeed Auth] SIGNED_IN via OAuth redirect.');
-      // The main app will pick this up if it polls auth state.
-    }
-  });
-}
+// Auth state changes are managed in app.js. No duplicate listeners here.
 
 // ==================== GOOGLE AUTH (Web & Mobile) ====================
 async function signInWithGoogle() {
   if (!supabaseClient) throw new Error('[PawFeed] Supabase client not initialised.');
+
+  // Set flag to bypass splash screen and show "Signing you in..." loader on redirect reload
+  localStorage.setItem('pawfeed_oauth_in_progress', 'true');
 
   // Capacitor Native (Mobile App)
   if (window.Capacitor && window.Capacitor.isNativePlatform()) {
@@ -74,6 +66,7 @@ async function signInWithGoogle() {
       if (error) throw error;
       return data;
     } catch (err) {
+      localStorage.removeItem('pawfeed_oauth_in_progress');
       console.error("Google native sign-in error:", err);
       alert("Native Auth Error: " + (err.message || JSON.stringify(err)));
       throw err;
@@ -86,7 +79,10 @@ async function signInWithGoogle() {
         redirectTo: window.location.origin + window.location.pathname
       }
     });
-    if (error) throw error;
+    if (error) {
+      localStorage.removeItem('pawfeed_oauth_in_progress');
+      throw error;
+    }
     return data;
   }
 }

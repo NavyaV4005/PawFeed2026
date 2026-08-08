@@ -84,7 +84,10 @@ const USE_SUPABASE_ONLY = true;
     let VACCINE_SCHEDULE = {};
     let breedCache = {
       Dog: JSON.parse((USE_SUPABASE_ONLY ? null : localStorage.getItem('cachedDogBreeds'))) || [],
-      Cat: JSON.parse((USE_SUPABASE_ONLY ? null : localStorage.getItem('cachedCatBreeds'))) || []
+      Cat: JSON.parse((USE_SUPABASE_ONLY ? null : localStorage.getItem('cachedCatBreeds'))) || [],
+      Rabbit: [],
+      Bird: [],
+      Hamster: []
     };
 
     async function loadReferenceDatasets() {
@@ -102,6 +105,9 @@ const USE_SUPABASE_ONLY = true;
         console.log('Reference datasets loaded successfully');
         fetchBreedData('Dog');
         fetchBreedData('Cat');
+        fetchBreedData('Rabbit');
+        fetchBreedData('Bird');
+        fetchBreedData('Hamster');
       } catch (err) {
         console.error('Failed to load reference datasets:', err);
       }
@@ -167,9 +173,16 @@ const USE_SUPABASE_ONLY = true;
     ].sort();
 
     async function fetchBreedData(species) {
-      if (species !== 'Dog' && species !== 'Cat') return [];
+      if (species !== 'Dog' && species !== 'Cat' && species !== 'Rabbit' && species !== 'Bird' && species !== 'Hamster') return [];
       // Use hardcoded list first (instant, works offline)
-      const hardcoded = species === 'Dog' ? DOG_BREEDS : CAT_BREEDS;
+      let hardcoded = [];
+      if (species === 'Dog') {
+        hardcoded = DOG_BREEDS;
+      } else if (species === 'Cat') {
+        hardcoded = CAT_BREEDS;
+      } else {
+        hardcoded = BREEDS[species] || [];
+      }
       const simplified = hardcoded.map(name => ({ id: name, name }));
       breedCache[species] = simplified;
       return simplified;
@@ -343,22 +356,7 @@ const USE_SUPABASE_ONLY = true;
       pawCache.activePetIdx = 0;
     }
 
-    function initRealtimeSubscriptions() {
-      if (!window.supabaseClient || !currentUser) return;
-      if (window._pawfeedChannel) {
-        try { window.supabaseClient.removeChannel(window._pawfeedChannel); } catch(e) {}
-      }
-      const householdId = currentHouseholdId || currentUser.id;
-      const channel = window.supabaseClient.channel('realtime_user_data_' + currentUser.id);
-      
-      channel.on('postgres_changes', { event: '*', schema: 'public', filter: `household_id=eq.${householdId}` }, async (payload) => {
-        console.log('[PawFeed Realtime] Data change detected in cloud:', payload.table);
-        await fetchAllDataFromSupabase();
-        refreshAllUI();
-      }).subscribe();
-      
-      window._pawfeedChannel = channel;
-    }
+
 
     function loadLocalCache() {
       try {
@@ -410,8 +408,43 @@ const USE_SUPABASE_ONLY = true;
       showToast("Syncing with cloud... ☁️");
       
       try {
-        // First get the household ID and user profile data
-        const { data: profileData } = await window.supabaseClient.from('user_profiles').select('*').eq('id', userId).maybeSingle();
+        // Fire user_profiles and basic Home-screen tables simultaneously — fits within browser concurrent limit of 6
+        const [
+          profileRes,
+          petsRes, logsRes, tasksRes, mealPlanRes, favoritesRes
+        ] = await Promise.all([
+          window.supabaseClient.from('user_profiles').select('*').eq('id', userId).maybeSingle(),
+          window.supabaseClient.from('pets').select('*').or(`user_id.eq.${userId},household_id.eq.${userId}`),
+          window.supabaseClient.from('feeding_logs').select('*').or(`user_id.eq.${userId},household_id.eq.${userId}`),
+          window.supabaseClient.from('care_tasks').select('*').or(`user_id.eq.${userId},household_id.eq.${userId}`),
+          Promise.resolve(window.supabaseClient.from('weekly_meal_plan').select('*').eq('household_id', userId).maybeSingle()).catch(e => ({data: null, error: e})),
+          Promise.resolve(window.supabaseClient.from('recipe_favorites').select('*').eq('household_id', userId)).catch(e => ({data: null, error: e}))
+        ]);
+
+        // Extract profile and household_id from parallel result
+        let profileData = profileRes?.data;
+        if (!profileData) {
+          console.log('[PawFeed Auth] Profile not found, creating a default profile...');
+          const newProfile = {
+            id: userId,
+            household_id: userId,
+            settings: {},
+            daily_checklist: {}
+          };
+          const { data: inserted, error: insertErr } = await window.supabaseClient
+            .from('user_profiles')
+            .upsert(newProfile)
+            .select('*')
+            .maybeSingle();
+            
+          if (!insertErr && inserted) {
+            profileData = inserted;
+          } else {
+            console.warn('[PawFeed Auth] Default profile creation failed:', insertErr);
+            profileData = newProfile;
+          }
+        }
+
         if (profileData) {
           if (profileData.household_id) currentHouseholdId = profileData.household_id;
           else currentHouseholdId = userId;
@@ -419,37 +452,24 @@ const USE_SUPABASE_ONLY = true;
         } else {
           currentHouseholdId = userId;
         }
-        if (!pawCache.userAvatarUrl && currentUser && currentUser.user_metadata && currentUser.user_metadata.avatar_url) {
+        if (!pawCache.userAvatarUrl && currentUser?.user_metadata?.avatar_url) {
           pawCache.userAvatarUrl = currentUser.user_metadata.avatar_url;
         }
-        
-        // Render it in Profile tab
+
         const hhDisplay = document.getElementById('householdIdDisplay');
         if (hhDisplay) hhDisplay.value = currentHouseholdId;
 
-        const [
-          petsRes, logsRes, stockRes, expensesRes, postsRes, tasksRes,
-          moodsRes, medicalRecordsRes, medicalReportsRes, sleepsRes, galleryRes, weightsRes, recipesRes,
-          medsRes, vetLogsRes
-        ] = await Promise.all([
-          window.supabaseClient.from('pets').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
-          window.supabaseClient.from('feeding_logs').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
-          window.supabaseClient.from('stock_items').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
-          window.supabaseClient.from('expenses').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
-          window.supabaseClient.from('community_posts').select('*').order('id', { ascending: false }),
-          window.supabaseClient.from('care_tasks').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
-          window.supabaseClient.from('mood_logs').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
-          window.supabaseClient.from('medical_records').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
-          window.supabaseClient.from('medical_reports').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
-          window.supabaseClient.from('sleep_logs').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
-          window.supabaseClient.from('pet_gallery').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
-          window.supabaseClient.from('weight_history').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
-          window.supabaseClient.from('custom_recipes').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
-          window.supabaseClient.from('meds').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`),
-          window.supabaseClient.from('vet_logs').select('*').or(`household_id.eq.${currentHouseholdId},user_id.eq.${userId}`)
-        ]);
-
-        const profileRes = { data: profileData };
+        // Re-fetch household-scoped tables only if household_id differs from userId
+        if (currentHouseholdId !== userId) {
+          const [hhPets, hhLogs, hhTasks] = await Promise.all([
+            window.supabaseClient.from('pets').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
+            window.supabaseClient.from('feeding_logs').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
+            window.supabaseClient.from('care_tasks').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`)
+          ]);
+          if (hhPets.data) petsRes.data = hhPets.data;
+          if (hhLogs.data) logsRes.data = hhLogs.data;
+          if (hhTasks.data) tasksRes.data = hhTasks.data;
+        }
 
         if (petsRes.data) {
           pawCache.pets = petsRes.data.map(p => {
@@ -503,157 +523,20 @@ const USE_SUPABASE_ONLY = true;
           });
         }
 
-        if (stockRes.data) {
-          pawCache.stockItems = stockRes.data.map(s => ({
-            id: s.id,
-            name: s.name,
-            type: s.type,
-            quantity: parseFloat(s.quantity),
-            unit: s.unit,
-            threshold: parseFloat(s.threshold),
-            decrementAmount: parseFloat(s.decrement_amount)
-          }));
+        if (tasksRes.data) {
+          pawCache.tasks = tasksRes.data;
         }
 
-        if (expensesRes.data) {
-          pawCache.expenses = expensesRes.data.map(e => ({
-            id: e.id,
-            date: e.date,
-            category: e.category,
-            amount: parseFloat(e.amount),
-            desc: e.notes
-          }));
-        }
-
-        if (postsRes.data) {
-          pawCache.communityPosts = postsRes.data.map(p => {
-            if (p.payload && Object.keys(p.payload).length > 0) {
-              return { ...p.payload, dbId: p.id, user_id: p.user_id };
-            }
-            return { id: p.id, dbId: p.id, user_id: p.user_id, type: 'tip', caption: p.content || '', image: p.image_url, author: 'PawFeed User', likes: 0, date: p.created_at };
-          });
-        }
-
-        // (Cart, scan history, and orders removed — tabs no longer used)
-
-        if (moodsRes.data) {
-          pawCache.moodLog = moodsRes.data.map(m => {
-            const petIdx = pawCache.pets.findIndex(p => p.id === m.pet_id);
-            return {
-              petIdx: petIdx >= 0 ? petIdx : 0,
-              date: m.date,
-              label: m.label
-            };
-          });
-        }
-
-        if (medicalRecordsRes.data && medicalRecordsRes.data.length > 0) {
-          pawCache.medicalRecords = medicalRecordsRes.data;
-        } else if (profileRes.data && profileRes.data.settings && profileRes.data.settings.medical_records) {
-          // Restore from fallback if main table failed or is empty
-          pawCache.medicalRecords = profileRes.data.settings.medical_records;
-        }
-        if (medicalReportsRes.data) {
-          pawCache.medicalReports = medicalReportsRes.data;
-        }
-
-        if (medsRes.data) {
-          pawCache.meds = medsRes.data.map(m => ({
-            id: m.id,
-            petIdx: 0,
-            petName: 'General',
-            name: m.name,
-            dose: m.dosage || '',
-            time: m.frequency || '',
-            notes: '',
-            active: true
-          }));
-        }
-
-        if (vetLogsRes.data) {
-          pawCache.vetLog = vetLogsRes.data.map(v => {
-            const petIdx = pawCache.pets.findIndex(p => p.id === v.pet_id);
-            const notesParts = (v.notes || '').split('\n');
-            const reason = notesParts[0] || 'Checkup';
-            const notes = notesParts.slice(1).join('\n');
-            return {
-              id: v.id,
-              petIdx: petIdx >= 0 ? petIdx : 0,
-              petName: pawCache.pets[petIdx]?.name || 'General',
-              date: v.date,
-              clinic: v.clinic || '',
-              reason: reason,
-              notes: notes
-            };
-          });
-        }
-
-        if (sleepsRes.data) {
-          pawCache.sleepLog = sleepsRes.data.map(s => {
-            const petIdx = pawCache.pets.findIndex(p => p.id === s.pet_id);
-            return {
-              petIdx: petIdx >= 0 ? petIdx : 0,
-              date: s.date,
-              hours: parseFloat(s.hours),
-              quality: s.quality
-            };
-          });
-        }
-
-        pawCache.gallery = {};
-        if (galleryRes.data) {
-          galleryRes.data.forEach(g => {
-            const petIdx = pawCache.pets.findIndex(p => p.id === g.pet_id);
-            const idxKey = petIdx >= 0 ? petIdx : 0;
-            if (!pawCache.gallery[idxKey]) pawCache.gallery[idxKey] = [];
-            pawCache.gallery[idxKey].push({
-              id: g.id,
-              src: g.image_url,
-              image: g.image_url,
-              date: g.created_at ? g.created_at.slice(0, 10) : '',
-              time: g.created_at
-            });
-          });
-        }
-
-        pawCache.weightHistory = {};
-        if (weightsRes.data) {
-          weightsRes.data.forEach(w => {
-            const petIdx = pawCache.pets.findIndex(p => p.id === w.pet_id);
-            const idxKey = petIdx >= 0 ? petIdx : 0;
-            if (!pawCache.weightHistory[idxKey]) pawCache.weightHistory[idxKey] = [];
-            pawCache.weightHistory[idxKey].push({ date: w.date, weight: parseFloat(w.weight) });
-          });
-        }
-
-        if (recipesRes.data) {
-          pawCache.customRecipes = recipesRes.data.map(r => ({
-            id: r.id,
-            title: r.name,
-            name: r.name,
-            ingredients: r.ingredients || [],
-            steps: r.steps || [],
-            notes: r.notes || '',
-            pet: ['Dog'],
-            type: 'Veg',
-            cat: 'Meal',
-            time: 15,
-            cookTime: '15 mins',
-            diff: 'Easy',
-            cal: 100,
-            protein: 10,
-            fat: 5,
-            fiber: 2,
-            carbohydrates: 20,
-            suitableAgeGroup: 'All',
-            healthConditionCompatibility: 'Healthy',
-            vetTip: '',
-            vet: false,
-            benefits: ['Nutritious home-cooked food.']
-          }));
-          (!USE_SUPABASE_ONLY && localStorage.setItem('pawfeed_custom_recipes', JSON.stringify(pawCache.customRecipes)));
-        }
-
+        // Initialize empty lazy caches to prevent null reference errors on startup
+        pawCache.stockItems = [];
+        pawCache.expenses = [];
+        pawCache.communityPosts = [];
+        pawCache.moodLog = [];
+        pawCache.medicalRecords = [];
+        pawCache.medicalReports = [];
+        pawCache.meds = [];
+        pawCache.vetLog = [];
+        pawCache.sleepLog = [];
         if (profileRes.data) {
           const p = profileRes.data;
           pawCache.recipes = p.recipe_store || pawCache.recipes || {};
@@ -673,10 +556,17 @@ const USE_SUPABASE_ONLY = true;
           }
         }
 
+        if (mealPlanRes && mealPlanRes.data) {
+          pawCache.weeklyPlan = mealPlanRes.data.plan_json || pawCache.weeklyPlan;
+        }
+        if (favoritesRes && favoritesRes.data) {
+          pawCache.recipeFavorites = favoritesRes.data.map(f => f.recipe_id || f.id);
+          localStorage.setItem('pawfeed_recipe_favorites', JSON.stringify(pawCache.recipeFavorites));
+        }
+
         if (tasksRes.data) {
           // Deduplicate: multiple DB rows may exist for same logical task (string ID). Keep latest.
           const seen = new Map();
-          // Sort ascending so the last (highest id = most recent) overwrites earlier ones
           const sorted = [...tasksRes.data].sort((a, b) => a.id - b.id);
           sorted.forEach(t => {
             const petIdx = pawCache.pets.findIndex(p => p.id === t.pet_id);
@@ -694,7 +584,6 @@ const USE_SUPABASE_ONLY = true;
                 completedDates: t.completed ? [] : []
               };
             }
-            // Use the payload's original string ID as dedup key (or numeric id as fallback)
             const dedupKey = (t.payload && t.payload.id) ? String(t.payload.id) : String(t.id);
             seen.set(dedupKey, obj);
           });
@@ -705,17 +594,13 @@ const USE_SUPABASE_ONLY = true;
         if (!_dummyPurgedThisSession && !localStorage.getItem('dummy_purged_v4')) {
           _dummyPurgedThisSession = true;
           localStorage.setItem('dummy_purged_v4', 'true');
-          // Remove old purge keys too
           localStorage.removeItem('dummy_purged_v3');
           console.log("Purging old dummy data v4 (one-time)...");
-          
           pawCache.stockItems = [];
           localStorage.removeItem('pawStock');
           if (typeof saveStockItems === 'function') saveStockItems([]);
-
           pawCache.expenses = [];
           localStorage.removeItem('pawExpenses');
-          
           pawCache.weeklyPlan = {
             Mon: { breakfast: null, lunch: null, dinner: null },
             Tue: { breakfast: null, lunch: null, dinner: null },
@@ -736,6 +621,192 @@ const USE_SUPABASE_ONLY = true;
       }
     }
 
+    // ─── LAZY LOADING SYSTEM FOR SUB-PAGES ───────────────────────────
+    const _loadedFeatures = {
+      home: true,
+      social: false,
+      homemade: false,
+      tracker: false,
+      care: false
+    };
+
+    async function lazyLoadFeature(feature) {
+      if (!window.supabaseClient || !currentUser) return;
+      if (_loadedFeatures[feature]) return;
+
+      const userId = currentUser.id;
+      showToast(`Loading ${feature} records... ⏳`);
+
+      try {
+        if (feature === 'social') {
+          const { data } = await window.supabaseClient.from('community_posts').select('*').order('id', { ascending: false });
+          if (data) {
+            pawCache.communityPosts = data.map(p => {
+              if (p.payload && Object.keys(p.payload).length > 0) {
+                return { ...p.payload, dbId: p.id, user_id: p.user_id };
+              }
+              return { id: p.id, dbId: p.id, user_id: p.user_id, type: 'tip', caption: p.content || '', image: p.image_url, author: 'PawFeed User', likes: 0, date: p.created_at };
+            });
+            (!USE_SUPABASE_ONLY && localStorage.setItem('pawCommunityPosts', JSON.stringify(pawCache.communityPosts)));
+          }
+        }
+        else if (feature === 'homemade') {
+          const [recipesRes, favoritesRes] = await Promise.all([
+            window.supabaseClient.from('custom_recipes').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
+            window.supabaseClient.from('recipe_favorites').select('*').eq('household_id', currentHouseholdId)
+          ]);
+          if (recipesRes.data) {
+            pawCache.customRecipes = recipesRes.data.map(r => ({
+              id: r.id,
+              title: r.name,
+              name: r.name,
+              ingredients: r.ingredients || [],
+              steps: r.steps || [],
+              notes: r.notes || '',
+              pet: ['Dog'],
+              type: 'Veg',
+              cat: 'Meal',
+              time: 15,
+              cookTime: '15 mins',
+              diff: 'Easy',
+              cal: 100,
+              protein: 10,
+              fat: 5,
+              fiber: 2,
+              carbohydrates: 20,
+              suitableAgeGroup: 'All',
+              healthConditionCompatibility: 'Healthy',
+              vetTip: '',
+              vet: false,
+              benefits: ['Nutritious home-cooked food.']
+            }));
+            (!USE_SUPABASE_ONLY && localStorage.setItem('pawfeed_custom_recipes', JSON.stringify(pawCache.customRecipes)));
+          }
+          if (favoritesRes.data) {
+            pawCache.recipeFavorites = favoritesRes.data.map(f => f.recipe_id || f.id);
+            localStorage.setItem('pawfeed_recipe_favorites', JSON.stringify(pawCache.recipeFavorites));
+          }
+        }
+        else if (feature === 'tracker') {
+          const [expensesRes, stockRes] = await Promise.all([
+            window.supabaseClient.from('expenses').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
+            window.supabaseClient.from('stock_items').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`)
+          ]);
+          if (expensesRes.data) {
+            pawCache.expenses = expensesRes.data.map(e => ({
+              id: e.id,
+              date: e.date,
+              category: e.category,
+              amount: parseFloat(e.amount),
+              desc: e.notes
+            }));
+          }
+          if (stockRes.data) {
+            pawCache.stockItems = stockRes.data.map(s => ({
+              id: s.id,
+              name: s.name,
+              type: s.type,
+              quantity: parseFloat(s.quantity),
+              unit: s.unit,
+              threshold: parseFloat(s.threshold),
+              decrementAmount: parseFloat(s.decrement_amount)
+            }));
+          }
+        }
+        else if (feature === 'care') {
+          const [moodsRes, medRec, medRep, sleepRes, galleryRes, weightRes, medsRes, vetRes] = await Promise.all([
+            window.supabaseClient.from('mood_logs').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
+            window.supabaseClient.from('medical_records').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
+            window.supabaseClient.from('medical_reports').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
+            window.supabaseClient.from('sleep_logs').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
+            window.supabaseClient.from('pet_gallery').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
+            window.supabaseClient.from('weight_history').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
+            window.supabaseClient.from('meds').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`),
+            window.supabaseClient.from('vet_logs').select('*').or(`user_id.eq.${userId},household_id.eq.${currentHouseholdId}`)
+          ]);
+
+          if (moodsRes.data) {
+            pawCache.moodLog = moodsRes.data.map(m => {
+              const petIdx = pawCache.pets.findIndex(p => p.id === m.pet_id);
+              return { petIdx: petIdx >= 0 ? petIdx : 0, date: m.date, label: m.label };
+            });
+          }
+          if (medRec.data) {
+            pawCache.medicalRecords = medRec.data;
+          }
+          if (medRep.data) {
+            pawCache.medicalReports = medRep.data;
+          }
+          if (sleepRes.data) {
+            pawCache.sleepLog = sleepRes.data.map(s => {
+              const petIdx = pawCache.pets.findIndex(p => p.id === s.pet_id);
+              return { petIdx: petIdx >= 0 ? petIdx : 0, date: s.date, hours: parseFloat(s.hours), quality: s.quality };
+            });
+          }
+          pawCache.gallery = {};
+          if (galleryRes.data) {
+            galleryRes.data.forEach(g => {
+              const petIdx = pawCache.pets.findIndex(p => p.id === g.pet_id);
+              const idxKey = petIdx >= 0 ? petIdx : 0;
+              if (!pawCache.gallery[idxKey]) pawCache.gallery[idxKey] = [];
+              pawCache.gallery[idxKey].push({
+                id: g.id,
+                src: g.image_url,
+                image: g.image_url,
+                date: g.created_at ? g.created_at.slice(0, 10) : '',
+                time: g.created_at
+              });
+            });
+          }
+          pawCache.weightHistory = {};
+          if (weightRes.data) {
+            weightRes.data.forEach(w => {
+              const petIdx = pawCache.pets.findIndex(p => p.id === w.pet_id);
+              const idxKey = petIdx >= 0 ? petIdx : 0;
+              if (!pawCache.weightHistory[idxKey]) pawCache.weightHistory[idxKey] = [];
+              pawCache.weightHistory[idxKey].push({ date: w.date, weight: parseFloat(w.weight) });
+            });
+          }
+          if (medsRes.data) {
+            pawCache.meds = medsRes.data.map(m => ({
+              id: m.id,
+              petIdx: 0,
+              petName: 'General',
+              name: m.name,
+              dose: m.dosage || '',
+              time: m.frequency || '',
+              notes: '',
+              active: true
+            }));
+          }
+          if (vetRes.data) {
+            pawCache.vetLog = vetRes.data.map(v => {
+              const petIdx = pawCache.pets.findIndex(p => p.id === v.pet_id);
+              const notesParts = (v.notes || '').split('\n');
+              const reason = notesParts[0] || 'Checkup';
+              const notes = notesParts.slice(1).join('\n');
+              return {
+                id: v.id,
+                petIdx: petIdx >= 0 ? petIdx : 0,
+                petName: pawCache.pets[petIdx]?.name || 'General',
+                date: v.date,
+                clinic: v.clinic || '',
+                reason: reason,
+                notes: notes
+              };
+            });
+          }
+        }
+
+        _loadedFeatures[feature] = true;
+        showToast(`Sync complete for ${feature}! ✅`);
+        refreshAllUI();
+      } catch (err) {
+        console.error(`Failed to lazy load ${feature}:`, err);
+      }
+    }
+
+
     async function callAI(endpoint, payload) {
       showToast("AI is thinking... 🐾");
       
@@ -750,7 +821,6 @@ const USE_SUPABASE_ONLY = true;
       // Set up fallbacks for development (localhost & local network IP) and production (Render)
       const urlsToTry = [
         `http://localhost:5000${endpoint}`,
-        `http://10.125.108.69:5000${endpoint}`,
         `https://pawfeedmobile.onrender.com${endpoint}`
       ];
 
@@ -1114,30 +1184,118 @@ const USE_SUPABASE_ONLY = true;
       }
     }
 
-    // ==================== LOADING SCREEN ====================
-    window.addEventListener('DOMContentLoaded', function () {
+    // ==================== LOADING SCREEN CONTROLLERS ====================
+    let _loadingInterval = null;
+    
+    function updateLoadingProgress(percentage, statusText) {
       const bar = document.getElementById('loadingBar');
-      let w = 0;
-      const iv = setInterval(() => {
-        w += Math.random() * 18 + 6;
-        if (w >= 100) { w = 100; clearInterval(iv); }
-        bar.style.width = w + '%';
-      }, 100);
-      setTimeout(() => {
-        document.getElementById('loadingScreen').style.opacity = '0';
-        document.getElementById('loadingScreen').style.transition = 'opacity 0.4s';
+      if (bar) {
+        bar.style.width = percentage + '%';
+      }
+      const label = document.getElementById('loadingScreen')?.querySelector('.loading-subtitle');
+      if (label && statusText) {
+        label.textContent = statusText;
+      }
+    }
+
+    function showLoadingScreen(statusText) {
+      const loading = document.getElementById('loadingScreen');
+      if (loading) {
+        loading.style.display = 'flex';
+        loading.style.opacity = '1';
+        loading.style.transition = 'none';
+      }
+      updateLoadingProgress(15, statusText || 'Syncing your pet profile and care logs... ☁️');
+      
+      let progress = 15;
+      if (_loadingInterval) clearInterval(_loadingInterval);
+      _loadingInterval = setInterval(() => {
+        progress += Math.random() * 8 + 2;
+        if (progress > 92) progress = 92;
+        updateLoadingProgress(progress);
+      }, 150);
+    }
+
+    function hideLoadingScreen() {
+      if (_loadingInterval) clearInterval(_loadingInterval);
+      updateLoadingProgress(100);
+      
+      const loading = document.getElementById('loadingScreen');
+      if (loading) {
+        loading.style.opacity = '0';
+        loading.style.transition = 'opacity 0.3s ease-out';
         setTimeout(() => {
-          document.getElementById('loadingScreen').style.display = 'none';
-          initApp();
-        }, 400);
-      }, 1800);
+          loading.style.display = 'none';
+        }, 300);
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', function () {
+      // Start initApp immediately — no hardcoded 1.8s timeout
+      initApp();
     });
 
-    async function initApp() {
 
+    // Guard: prevent double-loading when both onAuthStateChange and getSession fire together
+    let _appLoadInProgress = false;
+    let _appLoaded = false;
+
+    async function _loadAuthenticatedApp(session, s) {
+      if (_appLoadInProgress || _appLoaded) return;
+      _appLoadInProgress = true;
       
+      // Instantly dismiss splash screen & show loading screen during sync
+      const splash = document.getElementById("animeSplash");
+      if (splash) splash.style.display = "none";
+      
+      const isOAuth = localStorage.getItem('pawfeed_oauth_in_progress') === 'true' ||
+                      window.location.search.includes('code=') ||
+                      window.location.hash.includes('access_token=');
+                      
+      showLoadingScreen(isOAuth ? "Signing you in... 🐾" : "Syncing your pet profile and care logs... ☁️");
+
+      try {
+        currentUser = session.user;
+        localStorage.setItem('pawfeedCurrentUser', JSON.stringify(currentUser));
+        if (window.initPushNotifications) window.initPushNotifications(currentUser.id);
+        
+        await fetchAllDataFromSupabase();
+        
+        // Clear OAuth redirect progress flag on success
+        localStorage.removeItem('pawfeed_oauth_in_progress');
+        
+        loadApp();
+        if (s && s.reminders) startAllReminders();
+        initCalendar();
+        setupRealtimeSubscriptions();
+        initRealtimeSubscriptions();
+        _appLoaded = true;
+      } catch (e) {
+        console.error('[PawFeed] Error loading app after auth:', e);
+        localStorage.removeItem('pawfeed_oauth_in_progress');
+        showToast("Error logging in. Please check your network. ❌");
+      } finally {
+        _appLoadInProgress = false;
+        hideLoadingScreen();
+      }
+    }
+
+
+    async function initApp() {
+      // 1. Instantly check if we are undergoing a Google Sign-In redirect to bypass splash screen & show "Signing you in..."
+      const isOAuthRedirect = window.location.search.includes('code=') || 
+                              window.location.hash.includes('access_token=') ||
+                              localStorage.getItem('pawfeed_oauth_in_progress') === 'true';
+                              
+      if (isOAuthRedirect) {
+        const splash = document.getElementById("animeSplash");
+        if (splash) splash.style.display = "none";
+        showLoadingScreen("Signing you in... 🐾");
+      }
+
       loadLocalCache();
       await loadReferenceDatasets();
+      
       // Apply dark mode
       const s = getSettings();
       if (s.darkMode) {
@@ -1148,54 +1306,87 @@ const USE_SUPABASE_ONLY = true;
       if (s.reminders) document.getElementById('reminderToggle').classList.add('on');
 
       if (window.supabaseClient) {
+        // 2. Query session FIRST synchronously (handles redirect completion, reload, and restoration)
+        let initialSession = null;
         try {
-          const { data: { session }, error } = await window.supabaseClient.auth.getSession();
-          if (session) {
-            currentUser = session.user;
-            if (window.initPushNotifications) window.initPushNotifications(currentUser.id);
-            // Sync with cloud BEFORE showing UI
-            await fetchAllDataFromSupabase();
-            loadApp();
-            if (s.reminders) startAllReminders();
-            refreshAllUI();
-            initCalendar();
-            
-            // Setup Supabase Realtime for Community Feed
-            setupRealtimeSubscriptions();
-            
-            return;
-            return;
+          const { data: { session } } = await window.supabaseClient.auth.getSession();
+          initialSession = session;
+          if (session && !_appLoaded && !_appLoadInProgress) {
+            await _loadAuthenticatedApp(session, s);
           }
         } catch (e) {
-          console.error("Failed to restore Supabase session:", e);
+          console.error('Failed to restore Supabase session on init:', e);
         }
-      }
 
-      const storedLocalUser = localStorage.getItem('pawfeedCurrentUser');
-      if (storedLocalUser) {
-        try {
-          currentUser = JSON.parse(storedLocalUser);
-          if (window.initPushNotifications) window.initPushNotifications(currentUser.id);
-          if (window.supabaseClient) {
-            await fetchAllDataFromSupabase();
-            loadApp();
-            if (s.reminders) startAllReminders();
-            refreshAllUI();
-            initCalendar();
-            setupRealtimeSubscriptions();
+        // 3. Fallback to cached local user only if no active Supabase session was found
+        if (!initialSession) {
+          const storedLocalUser = localStorage.getItem('pawfeedCurrentUser');
+          if (storedLocalUser) {
+            try {
+              currentUser = JSON.parse(storedLocalUser);
+              await _loadAuthenticatedApp({ user: currentUser }, s);
+            } catch (e) {
+              console.error('Failed to parse local user:', e);
+              showScreen('loginScreen');
+              hideLoadingScreen();
+            }
           } else {
+            showScreen('loginScreen');
+            hideLoadingScreen();
+            // Ensure splash screen is hidden
+            const splash = document.getElementById("animeSplash");
+            if (splash) splash.style.display = "none";
+          }
+        }
+
+        // 4. Attach auth listener ONLY for subsequent changes (avoiding boot concurrency)
+        window.supabaseClient.auth.onAuthStateChange(async (event, session) => {
+          console.log(`[PawFeed Auth State Change] Event: ${event}`);
+          
+          if (event === 'SIGNED_IN' && session) {
+            if (!_appLoaded && !_appLoadInProgress) {
+              await _loadAuthenticatedApp(session, s);
+            }
+          } else if (event === 'PASSWORD_RECOVERY' && session) {
+            console.log('[PawFeed Auth] PASSWORD_RECOVERY detected — showing update password modal.');
+            const modal = document.getElementById('updatePasswordModal');
+            if (modal) modal.classList.remove('hidden');
+          } else if (event === 'SIGNED_OUT') {
+            _appLoaded = false;
+            _appLoadInProgress = false;
+            currentUser = null;
+            localStorage.removeItem('pawfeedCurrentUser');
+            localStorage.removeItem('pawfeed_oauth_in_progress');
+            
+            // Reset lazy load status
+            for (const key in _loadedFeatures) {
+              _loadedFeatures[key] = false;
+            }
+            _loadedFeatures.home = true;
+            
+            showScreen('loginScreen');
+            hideLoadingScreen();
+          }
+        });
+      } else {
+        // Offline / Development Offline fallback
+        const storedLocalUser = localStorage.getItem('pawfeedCurrentUser');
+        if (storedLocalUser) {
+          try {
+            currentUser = JSON.parse(storedLocalUser);
             loadApp();
             if (s.reminders) startAllReminders();
             refreshAllUI();
             initCalendar();
+          } catch (e) {
+            console.error('Failed to parse local auth:', e);
+            showScreen('loginScreen');
           }
-          return;
-        } catch (e) {
-          console.error("Failed to parse local auth:", e);
+        } else {
+          showScreen('loginScreen');
         }
+        hideLoadingScreen();
       }
-
-      showScreen('loginScreen');
     }
 
     // --- REALTIME SUBSCRIPTIONS ---
@@ -1522,11 +1713,9 @@ const USE_SUPABASE_ONLY = true;
         if (window.supabaseClient) {
           await fetchAllDataFromSupabase();
           loadApp();
-          refreshAllUI();
           initCalendar();
         } else {
           loadApp();
-          refreshAllUI();
           initCalendar();
         }
         return;
@@ -1554,7 +1743,6 @@ const USE_SUPABASE_ONLY = true;
         await fetchAllDataFromSupabase();
         initRealtimeSubscriptions();
         loadApp();
-        refreshAllUI();
         initCalendar();
       } catch (err) {
         showToast('Incorrect email or password.');
@@ -1624,7 +1812,7 @@ const USE_SUPABASE_ONLY = true;
         
         let redirectUrl = 'pawfeed://login-callback';
         if (!window.Capacitor || !window.Capacitor.isNativePlatform || !window.Capacitor.isNativePlatform()) {
-          redirectUrl = 'https://www-mauve-one.vercel.app/';
+          redirectUrl = window.location.origin + '/';
         }
         
         const { data, error } = await window.supabaseClient.auth.resetPasswordForEmail(email, {
@@ -4331,6 +4519,12 @@ const USE_SUPABASE_ONLY = true;
       const snav = document.getElementById('snav-' + tab);
       if (snav) snav.classList.add('active');
 
+      // Lazy load database tables dynamically on tab open
+      if (tab === 'social') lazyLoadFeature('social');
+      if (tab === 'homemade') lazyLoadFeature('homemade');
+      if (tab === 'tracker') lazyLoadFeature('tracker');
+      if (tab === 'care') lazyLoadFeature('care');
+
       if (tab === 'profile') {
         renderGalleryTab();
         renderBirthdayTab();
@@ -4342,6 +4536,28 @@ const USE_SUPABASE_ONLY = true;
       }
       if (tab === 'homemade') {
         if (typeof renderStockTracker === 'function') renderStockTracker();
+        // Auto-fill Smart Recipe form with active pet data
+        try {
+          const pets = getPets();
+          const activePet = pets && pets.length > 0 ? pets[getActivePetIdx()] : null;
+          if (activePet) {
+            const nameEl = document.getElementById('recPetName');
+            const animalEl = document.getElementById('recAnimal');
+            const ageEl = document.getElementById('recAge');
+            const weightEl = document.getElementById('recWeight');
+            if (nameEl) nameEl.value = activePet.name || 'My Pet';
+            if (animalEl && activePet.type) {
+              const speciesMap = { dog: 'Dog', cat: 'Cat', bird: 'Bird', rabbit: 'Rabbit', hamster: 'Hamster' };
+              const mapped = speciesMap[activePet.type.toLowerCase()] || activePet.type;
+              const opt = Array.from(animalEl.options).find(o => o.value === mapped);
+              if (opt) animalEl.value = mapped;
+            }
+            if (ageEl && activePet.age) ageEl.value = parseFloat(activePet.age) || 4;
+            if (weightEl && activePet.weight) weightEl.value = parseFloat(activePet.weight) || 18;
+            // Re-run recommendations with real pet data
+            if (typeof fetchSmartRecommendations === 'function') fetchSmartRecommendations();
+          }
+        } catch (e) { /* silently ignore */ }
       }
       if (tab === 'tracker') {
         if (typeof renderTrackerTab === 'function') renderTrackerTab(getPets(), getActivePetIdx(), isNoPet());
@@ -4365,6 +4581,13 @@ const USE_SUPABASE_ONLY = true;
       // Desktop sidebar nav
       const snav = document.getElementById('snav-combo-' + combo);
       if (snav) snav.classList.add('active');
+
+      // Lazy load database tables dynamically on combo open
+      if (combo === 'social') lazyLoadFeature('social');
+      if (combo === 'homemade') lazyLoadFeature('homemade');
+      if (combo === 'tracker') lazyLoadFeature('tracker');
+      if (combo === 'care') lazyLoadFeature('care');
+
       switchComboSub(combo, defaultSub);
     }
 
@@ -4396,25 +4619,57 @@ const USE_SUPABASE_ONLY = true;
           filter: `household_id=eq.${currentHouseholdId}`
         }, () => scheduleRefresh())
         .on('postgres_changes', {
-          event: '*', schema: 'public', table: 'care_tasks',
-          filter: `household_id=eq.${currentHouseholdId}`
-        }, () => scheduleRefresh())
-        .on('postgres_changes', {
-          event: '*', schema: 'public', table: 'community_posts'
-        }, () => scheduleRefresh(renderCommunity))
-        .on('postgres_changes', {
           event: '*', schema: 'public', table: 'medical_records',
           filter: `household_id=eq.${currentHouseholdId}`
         }, () => scheduleRefresh())
         .on('postgres_changes', {
-          event: '*', schema: 'public', table: 'direct_messages'
-        }, () => {
-          // Refresh DM if the modal is open
-          const dmModal = document.getElementById('dmModal');
-          if (dmModal && !dmModal.classList.contains('hidden')) {
-            if (typeof refreshDMList === 'function') refreshDMList();
-          }
-        })
+          event: '*', schema: 'public', table: 'medical_reports',
+          filter: `household_id=eq.${currentHouseholdId}`
+        }, () => scheduleRefresh())
+        .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'weight_history',
+          filter: `household_id=eq.${currentHouseholdId}`
+        }, () => scheduleRefresh())
+        .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'pet_gallery',
+          filter: `household_id=eq.${currentHouseholdId}`
+        }, () => scheduleRefresh())
+        .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'mood_logs',
+          filter: `household_id=eq.${currentHouseholdId}`
+        }, () => scheduleRefresh())
+        .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'sleep_logs',
+          filter: `household_id=eq.${currentHouseholdId}`
+        }, () => scheduleRefresh())
+        .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'stock_items',
+          filter: `household_id=eq.${currentHouseholdId}`
+        }, () => scheduleRefresh())
+        .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'expenses',
+          filter: `household_id=eq.${currentHouseholdId}`
+        }, () => scheduleRefresh())
+        .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'custom_recipes',
+          filter: `household_id=eq.${currentHouseholdId}`
+        }, () => scheduleRefresh())
+        .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'weekly_meal_plan',
+          filter: `household_id=eq.${currentHouseholdId}`
+        }, () => scheduleRefresh())
+        .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'recipe_favorites',
+          filter: `household_id=eq.${currentHouseholdId}`
+        }, () => scheduleRefresh())
+        .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'meds',
+          filter: `household_id=eq.${currentHouseholdId}`
+        }, () => scheduleRefresh())
+        .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'vet_logs',
+          filter: `household_id=eq.${currentHouseholdId}`
+        }, () => scheduleRefresh())
         .subscribe((status) => {
           if (status === 'SUBSCRIBED') {
             console.log('[PawFeed RT] Real-time active for household:', currentHouseholdId);
@@ -4436,15 +4691,14 @@ const USE_SUPABASE_ONLY = true;
         ['recipeDetailModal', 'closeRecipeDetailModal'],
         ['commentsModal', 'closeCommentsModal'],
         ['dmModal', 'closeDMModal'],
-        ['galleryModal', 'closeGalleryModal'],
+        ['galleryModal', () => { const m = document.getElementById('galleryModal'); if (m) m.classList.add('hidden'); }],
         ['lightbox', 'closeLightbox'],
-        ['medModal', 'closeMedModal'],
-        ['vetModal', 'closeVetModal'],
-        ['sleepModal', 'closeSleepModal'],
+        ['medicalRecordModal', 'closeMedicalRecordModal'],
+        ['medicalReportModal', 'closeMedicalReportModal'],
         ['updatePasswordModal', 'closeUpdatePasswordModal'],
-        ['taskModal', 'closeTaskModal'],
-        ['expenseModal', 'closeExpenseModal'],
-        ['weightModal', 'closeWeightModal'],
+        ['rescheduleModal', () => { const m = document.getElementById('rescheduleModal'); if (m) m.classList.add('hidden'); }],
+        ['plannerModal', () => { const m = document.getElementById('plannerModal'); if (m) m.classList.add('hidden'); }],
+        ['weightModal', () => { const m = document.getElementById('weightModal'); if (m) m.classList.add('hidden'); }],
       ];
       // Find the topmost visible modal and close it
       for (let i = closeMap.length - 1; i >= 0; i--) {
@@ -4753,12 +5007,12 @@ const USE_SUPABASE_ONLY = true;
           const fileExt = selectedCommunityImageFile.name.split('.').pop();
           const fileName = `${Date.now()}.${fileExt}`;
           const { data, error } = await window.supabaseClient.storage
-            .from('community-media')
+            .from('community-photos')
             .upload(`public/${fileName}`, selectedCommunityImageFile);
           
           if (!error) {
             const { data: urlData } = window.supabaseClient.storage
-              .from('community-media')
+              .from('community-photos')
               .getPublicUrl(`public/${fileName}`);
             imageUrl = urlData.publicUrl;
           } else {
@@ -6246,20 +6500,50 @@ const USE_SUPABASE_ONLY = true;
         console.error("Error syncing gallery to Supabase:", err);
       }
     }
-    function handleGalleryUpload(e) {
+    async function handleGalleryUpload(e) {
       const files = Array.from(e.target.files);
+      if (!files.length) return;
       const idx = getActivePetIdx();
       const gallery = getGallery(idx);
-      let count = 0;
-      files.forEach(file => {
-        const reader = new FileReader();
-        reader.onload = ev => {
-          gallery.unshift({ id: Date.now() + count++, src: ev.target.result, date: todayStr() });
-          saveGallery(idx, gallery.slice(0, 30));
+      
+      for (const file of files) {
+        let fileUrl = null;
+        if (window.supabaseClient && currentUser) {
+          showToast('Uploading gallery photo... 📷☁️');
+          try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `gallery_${idx}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
+            const { data, error } = await window.supabaseClient.storage
+              .from('community-photos')
+              .upload(`gallery/${fileName}`, file, { cacheControl: '3600', upsert: true });
+              
+            if (!error) {
+              const { data: urlData } = window.supabaseClient.storage
+                .from('community-photos')
+                .getPublicUrl(`gallery/${fileName}`);
+              fileUrl = urlData.publicUrl;
+            } else {
+              console.error("Gallery storage upload error:", error);
+            }
+          } catch (uploadErr) {
+            console.error("Gallery storage upload exception:", uploadErr);
+          }
+        }
+        
+        if (!fileUrl) {
+          const reader = new FileReader();
+          reader.onload = ev => {
+            gallery.unshift({ id: Date.now() + Math.random(), src: ev.target.result, date: todayStr() });
+            saveGallery(idx, gallery.slice(0, 30));
+            renderGalleryTab();
+          };
+          reader.readAsDataURL(file);
+        } else {
+          gallery.unshift({ id: Date.now() + Math.random(), src: fileUrl, date: todayStr() });
+          await saveGallery(idx, gallery.slice(0, 30));
           renderGalleryTab();
-        };
-        reader.readAsDataURL(file);
-      });
+        }
+      }
     }
     function deletePhoto(petIdx, id) {
       saveGallery(petIdx, getGallery(petIdx).filter(p => p.id !== id));
@@ -6661,28 +6945,17 @@ Use emojis and keep under 150 words.`;
 
 
 // ── Script block 2: splash/login logic ─────────────────────────────────────
-    // Dismiss anime splash and show loading screen
     function dismissAnimeSplash() {
+      if (_appLoadInProgress || _appLoaded) return;
       const splash = document.getElementById("animeSplash");
-      const loading = document.getElementById("loadingScreen");
       if (!splash) return;
       splash.classList.add("fade-out");
       setTimeout(() => {
         splash.style.display = "none";
-        if (loading) {
-          loading.style.display = "flex";
-          // animate loading bar
-          let w = 0;
-          const bar = document.getElementById("loadingBar");
-          const iv = setInterval(() => {
-            w += 8;
-            if (bar) bar.style.width = Math.min(w, 100) + "%";
-            if (w >= 100) clearInterval(iv);
-          }, 80);
-          setTimeout(() => { loading.style.display = "none"; }, 1500);
-        }
+        hideLoadingScreen();
       }, 600);
     }
+
 
     // Auto-dismiss splash after 3.5s if user doesn't tap
     window.addEventListener('load', function () {
@@ -6754,10 +7027,31 @@ Use emojis and keep under 150 words.`;
     function saveEditedRecipes(map) { localStorage.setItem('pawfeed_edited_recipes', JSON.stringify(map)); }
 
     function getRecipeFavorites() { return JSON.parse(localStorage.getItem('pawfeed_recipe_favorites') || '[]'); }
-    function saveRecipeFavorites(favs) { localStorage.setItem('pawfeed_recipe_favorites', JSON.stringify(favs)); }
+    async function saveRecipeFavorites(favs) {
+      localStorage.setItem('pawfeed_recipe_favorites', JSON.stringify(favs));
+      pawCache.recipeFavorites = favs;
+      
+      if (!window.supabaseClient || !currentUser) return;
+      const userId = currentUser.id;
+      const householdId = currentHouseholdId || userId;
+      
+      try {
+        await window.supabaseClient.from('recipe_favorites').delete().eq('user_id', userId);
+        if (favs.length > 0) {
+          const rows = favs.map(rid => ({
+            user_id: userId,
+            household_id: householdId,
+            recipe_id: String(rid)
+          }));
+          await window.supabaseClient.from('recipe_favorites').insert(rows);
+        }
+      } catch (err) {
+        console.error("Error syncing recipe favorites to Supabase:", err);
+      }
+    }
     function isRecipeFavorite(id) { return getRecipeFavorites().includes(id); }
 
-    function toggleRecipeFavorite(id) {
+    async function toggleRecipeFavorite(id) {
       let favs = getRecipeFavorites();
       if (favs.includes(id)) {
         favs = favs.filter(x => x !== id);
@@ -6766,7 +7060,7 @@ Use emojis and keep under 150 words.`;
         favs.push(id);
         showToast('Added to favorites! ⭐');
       }
-      saveRecipeFavorites(favs);
+      await saveRecipeFavorites(favs);
       renderHomemadeTab();
       if (typeof renderRecipeMemory === 'function') renderRecipeMemory();
     }
@@ -7272,7 +7566,7 @@ Use emojis and keep under 150 words.`;
       document.getElementById('recipeModal').classList.add('hidden');
     }
 
-    function saveRecipeForm() {
+    async function saveRecipeForm() {
       const id = document.getElementById('editRecipeId').value;
       const name = document.getElementById('formRecipeName').value.trim();
       const animal = document.getElementById('formRecipeAnimal').value;
@@ -7290,7 +7584,7 @@ Use emojis and keep under 150 words.`;
       const steps = document.getElementById('formRecipeSteps').value.split('\n').map(s => s.trim()).filter(Boolean);
       const vetTip = document.getElementById('formRecipeVetTip').value.trim();
       const vetApproved = document.getElementById('formRecipeVetApproved').checked;
-      const image = document.getElementById('formRecipeImage').value;
+      let image = document.getElementById('formRecipeImage').value;
 
       if (!name) { showToast('Please enter a recipe name'); return; }
       if (!ingredients.length) { showToast('Please enter ingredients'); return; }
@@ -7322,10 +7616,40 @@ Use emojis and keep under 150 words.`;
         custom: true
       };
 
+      if (window.supabaseClient && image && image.startsWith('data:')) {
+        try {
+          const mime = image.split(';')[0].split(':')[1];
+          const byteString = atob(image.split(',')[1]);
+          const ab = new ArrayBuffer(byteString.length);
+          const ia = new Uint8Array(ab);
+          for (let i = 0; i < byteString.length; i++) {
+            ia[i] = byteString.charCodeAt(i);
+          }
+          const blob = new Blob([ab], { type: mime });
+          const fileExt = mime.split('/')[1] || 'png';
+          const fileName = `recipe_${Date.now()}.${fileExt}`;
+          
+          showToast('Uploading recipe image... ⏳');
+          const { error: uploadError } = await window.supabaseClient.storage
+            .from('recipe-images')
+            .upload(fileName, blob, { contentType: mime, cacheControl: '3600', upsert: true });
+            
+          if (uploadError) throw uploadError;
+          
+          const { data: pubUrl } = window.supabaseClient.storage
+            .from('recipe-images')
+            .getPublicUrl(fileName);
+            
+          recipeObj.image = pubUrl.publicUrl;
+        } catch (e) {
+          console.error("Error uploading recipe image to Supabase Storage:", e);
+        }
+      }
+
       if (id) {
         if (id.startsWith('custom_')) {
           const custom = getCustomRecipes().map(r => r.id === id ? recipeObj : r);
-          saveCustomRecipes(custom);
+          await saveCustomRecipes(custom);
         } else {
           const edited = getEditedRecipes();
           edited[id] = recipeObj;
@@ -7335,7 +7659,7 @@ Use emojis and keep under 150 words.`;
       } else {
         const custom = getCustomRecipes();
         custom.push(recipeObj);
-        saveCustomRecipes(custom);
+        await saveCustomRecipes(custom);
         showToast('New recipe added!');
       }
 
@@ -9140,7 +9464,7 @@ window.renderMedicalReportsBox = function() {
 
         html += `
         <div class="med-report-card">
-            <div style="flex:1; display:flex; align-items:center; gap:14px; cursor:pointer;" onclick="window.open('${r.file_url}', '_blank')">
+            <div style="flex:1; display:flex; align-items:center; gap:14px; cursor:pointer;" onclick="openMedicalReportFile('${r.file_url}')">
                 <div class="med-icon-box" style="color:var(--primary);">${fileIcon}</div>
                 <div>
                     <h3 style="margin:0; font-size:1.1rem; color:var(--dark); font-weight: 800;">${r.title || 'Document'}</h3>
@@ -9252,6 +9576,38 @@ window.uploadMedicalReport = async function() {
     }
 };
 
+window.openMedicalReportFile = async function(fileUrl) {
+    if (!window.supabaseClient) {
+        window.open(fileUrl, '_blank');
+        return;
+    }
+    try {
+        let relativePath = fileUrl;
+        const urlParts = fileUrl.split('/medical-reports/');
+        if (urlParts.length > 1) {
+            relativePath = urlParts[1];
+        }
+        if (relativePath.includes('?')) {
+            relativePath = relativePath.split('?')[0];
+        }
+        
+        const { data, error } = await window.supabaseClient.storage
+            .from('medical-reports')
+            .createSignedUrl(relativePath, 60);
+            
+        if (error) throw error;
+        if (data && data.signedUrl) {
+            window.open(data.signedUrl, '_blank');
+        } else {
+            window.open(fileUrl, '_blank');
+        }
+    } catch (err) {
+        console.error("Error creating signed URL:", err);
+        window.open(fileUrl, '_blank');
+    }
+};
+window.openMedicalReportFile = openMedicalReportFile;
+
 window.deleteMedicalReport = async function(id, fileUrl) {
     if (!confirm("Are you sure you want to delete this report? This action cannot be undone.")) return;
     
@@ -9292,99 +9648,171 @@ window.renderRecordsTab = function() {
 
 window.lastModelRecommendations = [];
 
+// ─── Species parameters for feature normalization ───────────────────────────
+//
+// maxProtein: approximate max grams of protein per serving for this species.
+//   Used as the weight dimension — larger/heavier animals need higher-protein
+//   recipes, so user.weight maps to recipe.proteinDensity in the KNN.
+//
+const _REC_SPECIES_PARAMS = {
+    dog:     { maxAge: 20,  maxWeight: 80,   maxCalPerServing: 600,  mealsPerDay: 2, maxProtein: 25 },
+    cat:     { maxAge: 25,  maxWeight: 15,   maxCalPerServing: 300,  mealsPerDay: 2, maxProtein: 20 },
+    bird:    { maxAge: 50,  maxWeight: 2,    maxCalPerServing: 150,  mealsPerDay: 3, maxProtein: 12 },
+    rabbit:  { maxAge: 12,  maxWeight: 10,   maxCalPerServing: 200,  mealsPerDay: 2, maxProtein: 18 },
+    hamster: { maxAge: 4,   maxWeight: 0.25, maxCalPerServing: 50,   mealsPerDay: 2, maxProtein:  8 }
+};
+
+// Map recipe ageGroup string → continuous [0,1] life-stage score
+function _recAgeGroupNorm(ageGroup) {
+    const ag = (ageGroup || '').toLowerCase();
+    if (ag.includes('baby') || ag.includes('puppy') || ag.includes('kitten')) return 0.15;
+    if (ag.includes('senior') || ag.includes('geriatric') || ag.includes('elder')) return 0.85;
+    return 0.50; // Adult / generic
+}
+
+// Parse a nutrition string like "11.8 g" or "169 kcal" to a float
+function _parseNutVal(str) {
+    if (!str) return 0;
+    const m = String(str).match(/[\d.]+/);
+    return m ? parseFloat(m[0]) : 0;
+}
+
+/**
+ * True 3-dimensional KNN recommender.
+ *
+ * Three INDEPENDENT feature axes:
+ *   Axis 1 — AGE    : user age (years)        ↔ recipe ageGroup (Baby/Adult/Senior)
+ *   Axis 2 — CALORIE: user calories/meal      ↔ recipe calorie density per serving
+ *   Axis 3 — WEIGHT : user body weight (kg)   ↔ recipe protein density (g protein)
+ *
+ * Axis 3 is intentionally protein density, NOT calorie density again.
+ * Protein content is structurally uncorrelated with calories in the dataset:
+ *   a low-cal recipe can be high-protein (e.g. fish + greens)
+ *   a high-cal recipe can be low-protein (e.g. grain-heavy)
+ * This guarantees weight changes move the user vector independently of calories.
+ *
+ * Result: ALL THREE inputs (age, weight, calories) independently shift which
+ * recipes are closest, satisfying:
+ *   Dog 2yr 10kg 700kcal ≠ Dog 2yr 20kg 700kcal (different weight → different protein target)
+ *   Dog 2yr 20kg 700kcal ≠ Dog 5yr 20kg 700kcal (different age   → different life stage)
+ *   Dog 5yr 20kg 700kcal ≠ Dog 5yr 20kg 900kcal (different cal   → different calorie density)
+ */
 function getRecommendedRecipesList(species, name, age, weight, calories) {
     const sp = (species || 'Dog').toLowerCase();
-    const targetCal = parseFloat(calories) || 900;
-    
-    let db = typeof HOME_RECIPES !== 'undefined' && Array.isArray(HOME_RECIPES) ? HOME_RECIPES : [];
-    let suitable = db.filter(r => {
-        let petStr = '';
-        if (Array.isArray(r.pet)) {
-            petStr = r.pet.join(',').toLowerCase();
-        } else {
-            petStr = (r.pet || r.petType || '').toString().toLowerCase();
-        }
-        return petStr.includes(sp) || sp.includes(petStr);
+    const params = _REC_SPECIES_PARAMS[sp] || _REC_SPECIES_PARAMS.dog;
+
+    // ── Pull from loaded PAWFEED_RECIPES dataset (recipes.js) ──────────────
+    const dataset =
+        (window.PAWFEED_RECIPES && window.PAWFEED_RECIPES[sp]) ||
+        (window.PAWFEED_RECIPES && window.PAWFEED_RECIPES.dog) || [];
+
+    // ── Normalize user inputs to [0,1] ──────────────────────────────────────
+    const ageF    = Math.max(0.01, parseFloat(age)     || 1);
+    const weightF = Math.max(0.01, parseFloat(weight)  || 1);
+    const calF    = Math.max(1,    parseFloat(calories) || 100);
+
+    // Axis 1: age normalized against species life expectancy
+    const userAgeNorm = Math.min(1, ageF / params.maxAge);
+
+    // Axis 2: daily calories → per-meal target → normalized against max serving
+    const calPerMeal  = calF / params.mealsPerDay;
+    const userCalNorm = Math.min(1, calPerMeal / params.maxCalPerServing);
+
+    // Axis 3: body weight normalized — maps to PROTEIN DENSITY target.
+    //   Heavier animal → needs higher-protein recipes per serving.
+    const userWeightNorm = Math.min(1, weightF / params.maxWeight);
+
+    // ── Feature weights ─────────────────────────────────────────────────────
+    const W_AGE    = 2.0;  // life-stage is the strongest dietary signal
+    const W_CAL    = 1.5;  // calorie match determines portion suitability
+    const W_WEIGHT = 1.2;  // protein density (increased to make weight impactful)
+
+    // ── Score every recipe via weighted Euclidean distance ─────────────────
+    const scored = dataset.map((recipe, rawIdx) => {
+        const nutr = recipe.nutrition || {};
+
+        // Recipe Axis 1: life-stage score
+        const recAgeNorm = _recAgeGroupNorm(recipe.ageGroup);
+
+        // Recipe Axis 2: calorie density (calories per serving)
+        const recCal     = _parseNutVal(nutr.calories) || 100;
+        const recCalNorm = Math.min(1, recCal / params.maxCalPerServing);
+
+        // Recipe Axis 3: protein density — INDEPENDENT of calorie axis
+        //   High-protein recipes → suit bigger/heavier animals
+        //   Low-protein  recipes → suit smaller/lighter animals
+        const recProtein     = _parseNutVal(nutr.protein) || 0;
+        const recProteinNorm = Math.min(1, recProtein / params.maxProtein);
+
+        const dist = Math.sqrt(
+            W_AGE    * Math.pow(userAgeNorm    - recAgeNorm,    2) +
+            W_CAL    * Math.pow(userCalNorm    - recCalNorm,    2) +
+            W_WEIGHT * Math.pow(userWeightNorm - recProteinNorm, 2)
+        );
+
+        return { recipe, dist, rawIdx };
     });
 
-    if (suitable && suitable.length >= 5) {
-        const scored = suitable.map(r => {
-            const rCal = parseFloat(r.calories || r.cal || 160);
-            const calDiff = Math.abs(rCal - (targetCal / 4)) / (targetCal / 4 || 1);
-            return { recipe: r, score: calDiff };
+    // Sort ascending (closest = best match) and take top 5
+    scored.sort((a, b) => a.dist - b.dist);
+    const top5 = scored.slice(0, 5);
+
+    // ── Convert distances → realistic match percentages ────────────────────
+    const minDist   = top5[0]?.dist ?? 0;
+    const maxDist   = top5[top5.length - 1]?.dist ?? 1;
+    const distRange = (maxDist - minDist) || 1;
+
+    const ranks = ['🥇', '🥈', '🥉', '4th', '5th'];
+
+    return top5.map((item, idx) => {
+        const r    = item.recipe;
+        const nutr = r.nutrition || {};
+
+        // Scale distance → match%: closest → 98%, furthest of top5 → 85%
+        const matchPct = Math.round(98 - ((item.dist - minDist) / distRange) * 13);
+        const safePct  = Math.max(85, Math.min(99, matchPct));
+
+        // Split "197g Pork Loin" → qty "197g", name "Pork Loin"
+        const rawIngredients  = Array.isArray(r.ingredients) ? r.ingredients : [];
+        const ingredientNames = rawIngredients.map(ing => {
+            const m = String(ing).match(/^(\d+g?)\s+(.+)$/i);
+            return m ? m[2].trim() : ing;
+        });
+        const ingredientQtys = rawIngredients.map(ing => {
+            const m = String(ing).match(/^(\d+g?)\b/i);
+            return m ? m[1] : '';
         });
 
-        scored.sort((a, b) => a.score - b.score);
-        const topScored = scored.slice(0, 5);
-
-        const ranks = ["🥇", "🥈", "🥉", "4th", "5th"];
-        const matches = [98, 96, 95, 93, 91];
-
-        return topScored.map((item, idx) => {
-            const r = item.recipe;
-            return {
-                rank: idx + 1,
-                badge: ranks[idx],
-                id: r.id || `REC_${idx+1}`,
-                recipe_name: r.title || r.recipe_name || 'Healthy Recipe Bowl',
-                match_percent: matches[idx],
-                match: `${matches[idx]}% Match`,
-                calories: r.calories || 160,
-                protein: r.protein ? (String(r.protein).includes('g') ? String(r.protein) : r.protein + 'g') : (12 + idx * 2) + 'g',
-                fat: r.fat ? (String(r.fat).includes('g') ? String(r.fat) : r.fat + 'g') : (5 + idx) + 'g',
-                carbs: r.carbohydrates || r.carbs ? (String(r.carbohydrates || r.carbs).includes('g') ? String(r.carbohydrates || r.carbs) : (r.carbohydrates || r.carbs) + 'g') : (8 + idx * 2) + 'g',
-                cook_time: r.cookTime || r.time || '20 mins',
-                difficulty: r.difficulty || 'Easy',
-                ingredients: Array.isArray(r.ingredients) ? r.ingredients : (r.ingredients ? String(r.ingredients).split(',') : ['Fresh Protein', 'Vegetables']),
-                quantities: Array.isArray(r.ingredient_quantities || r.quantities) ? (r.ingredient_quantities || r.quantities) : ['150g', '100g'],
-                steps: Array.isArray(r.preparation_steps || r.steps) ? (r.preparation_steps || r.steps) : (r.instructions ? [r.instructions] : ['Cook ingredients thoroughly.', 'Mix well and serve.'])
-            };
-        });
-    }
-
-    if (sp.includes('cat')) {
-        return [
-            { rank: 1, badge: "🥇", id: "CAT_1", recipe_name: "Chicken Rice Bowl", match_percent: 98, match: "98% Match", calories: 380, protein: "35g", fat: "14g", carbs: "42g", cook_time: "20 mins", difficulty: "Easy", ingredients: ["Chicken Breast", "White Rice", "Carrots", "Peas"], quantities: ["180g", "140g", "40g", "20g"], steps: ["Boil chicken breast until tender.", "Steam white rice and diced carrots.", "Combine gently and serve warm."] },
-            { rank: 2, badge: "🥈", id: "CAT_2", recipe_name: "Turkey Delight", match_percent: 96, match: "96% Match", calories: 360, protein: "32g", fat: "11g", carbs: "38g", cook_time: "25 mins", difficulty: "Easy", ingredients: ["Turkey Breast", "Sweet Potato", "Green Beans"], quantities: ["170g", "120g", "35g"], steps: ["Cook turkey thoroughly.", "Mash sweet potato and mix with green beans."] },
-            { rank: 3, badge: "🥉", id: "CAT_3", recipe_name: "Lamb Lean Mix", match_percent: 95, match: "95% Match", calories: 390, protein: "30g", fat: "15g", carbs: "36g", cook_time: "25 mins", difficulty: "Medium", ingredients: ["Lamb Lean", "Potato", "Celery"], quantities: ["180g", "110g", "30g"], steps: ["Poach lamb lean until fully cooked.", "Dice potato and celery, then mix."] },
-            { rank: 4, badge: "4th", id: "CAT_4", recipe_name: "Salmon & Pumpkin Puree", match_percent: 93, match: "93% Match", calories: 340, protein: "29g", fat: "12g", carbs: "30g", cook_time: "15 mins", difficulty: "Easy", ingredients: ["Salmon Fillet", "Pumpkin Puree"], quantities: ["160g", "90g"], steps: ["Pan-sear salmon.", "Mix gently with pumpkin puree."] },
-            { rank: 5, badge: "5th", id: "CAT_5", recipe_name: "Beef & Vegetable Stew", match_percent: 91, match: "91% Match", calories: 370, protein: "31g", fat: "13g", carbs: "33g", cook_time: "30 mins", difficulty: "Medium", ingredients: ["Lean Beef", "Carrots", "Zucchini"], quantities: ["175g", "50g", "50g"], steps: ["Simmer lean beef and vegetables in plain water until tender."] }
-        ];
-    } else if (sp.includes('bird')) {
-        return [
-            { rank: 1, badge: "🥇", id: "BIRD_1", recipe_name: "Seed & Veggie Mash", match_percent: 98, match: "98% Match", calories: 180, protein: "18g", fat: "8g", carbs: "45g", cook_time: "10 mins", difficulty: "Easy", ingredients: ["Mixed Seeds", "Chopped Spinach", "Grated Carrots"], quantities: ["50g", "30g", "20g"], steps: ["Mix seeds with fresh chopped greens and serve."] },
-            { rank: 2, badge: "🥈", id: "BIRD_2", recipe_name: "Oat & Fruit Chop", match_percent: 96, match: "96% Match", calories: 170, protein: "16g", fat: "6g", carbs: "48g", cook_time: "10 mins", difficulty: "Easy", ingredients: ["Rolled Oats", "Diced Apple", "Blueberries"], quantities: ["40g", "30g", "15g"], steps: ["Chop fruits finely and toss with oats."] },
-            { rank: 3, badge: "🥉", id: "BIRD_3", recipe_name: "Nutty Grain Blend", match_percent: 95, match: "95% Match", calories: 190, protein: "19g", fat: "9g", carbs: "42g", cook_time: "15 mins", difficulty: "Easy", ingredients: ["Quinoa", "Walnut Crumbles", "Peas"], quantities: ["45g", "15g", "20g"], steps: ["Cook quinoa, cool down, and fold in walnut crumbles."] },
-            { rank: 4, badge: "4th", id: "BIRD_4", recipe_name: "Sweet Corn & Millet Bowl", match_percent: 93, match: "93% Match", calories: 165, protein: "15g", fat: "5g", carbs: "46g", cook_time: "10 mins", difficulty: "Easy", ingredients: ["Millet", "Sweet Corn Kernels"], quantities: ["50g", "30g"], steps: ["Steam corn gently and serve with millet."] },
-            { rank: 5, badge: "5th", id: "BIRD_5", recipe_name: "Sprout & Herb Feast", match_percent: 91, match: "91% Match", calories: 160, protein: "17g", fat: "4g", carbs: "44g", cook_time: "5 mins", difficulty: "Easy", ingredients: ["Mung Bean Sprouts", "Parsley", "Chia Seeds"], quantities: ["40g", "10g", "10g"], steps: ["Rinse sprouts, chop parsley, and sprinkle chia seeds."] }
-        ];
-    } else if (sp.includes('rabbit')) {
-        return [
-            { rank: 1, badge: "🥇", id: "RAB_1", recipe_name: "Timothy Hay & Carrot Crunch", match_percent: 98, match: "98% Match", calories: 140, protein: "14g", fat: "3g", carbs: "52g", cook_time: "5 mins", difficulty: "Easy", ingredients: ["Timothy Hay", "Carrot Tops", "Romaine Lettuce"], quantities: ["100g", "30g", "40g"], steps: ["Freshly mix timothy hay with clean leafy greens."] },
-            { rank: 2, badge: "🥈", id: "RAB_2", recipe_name: "Herb & Kale Salad", match_percent: 96, match: "96% Match", calories: 130, protein: "15g", fat: "2.5g", carbs: "50g", cook_time: "5 mins", difficulty: "Easy", ingredients: ["Fresh Kale", "Basil", "Cilantro"], quantities: ["50g", "15g", "15g"], steps: ["Wash greens thoroughly and chop lightly."] },
-            { rank: 3, badge: "🥉", id: "RAB_3", recipe_name: "Pumpkin & Pellet Medley", match_percent: 95, match: "95% Match", calories: 150, protein: "13g", fat: "4g", carbs: "54g", cook_time: "10 mins", difficulty: "Easy", ingredients: ["Alfalfa Pellets", "Diced Pumpkin", "Oat Hay"], quantities: ["40g", "30g", "60g"], steps: ["Combine pellets with fresh pumpkin pieces."] },
-            { rank: 4, badge: "4th", id: "RAB_4", recipe_name: "Apple Slice Treat Bowl", match_percent: 93, match: "93% Match", calories: 125, protein: "11g", fat: "2g", carbs: "48g", cook_time: "5 mins", difficulty: "Easy", ingredients: ["Thin Apple Slices", "Meadow Hay"], quantities: ["20g", "100g"], steps: ["Slice apple thinly without seeds and serve over hay."] },
-            { rank: 5, badge: "5th", id: "RAB_5", recipe_name: "Berry & Dandelion Plate", match_percent: 91, match: "91% Match", calories: 120, protein: "12g", fat: "2g", carbs: "46g", cook_time: "5 mins", difficulty: "Easy", ingredients: ["Dandelion Greens", "Fresh Strawberry"], quantities: ["60g", "15g"], steps: ["Clean greens and top with a small strawberry slice."] }
-        ];
-    } else if (sp.includes('hamster')) {
-        return [
-            { rank: 1, badge: "🥇", id: "HAM_1", recipe_name: "Sunflower & Oat Cluster", match_percent: 98, match: "98% Match", calories: 95, protein: "16g", fat: "9g", carbs: "40g", cook_time: "5 mins", difficulty: "Easy", ingredients: ["Sunflower Seeds", "Rolled Oats", "Dried Peas"], quantities: ["15g", "20g", "10g"], steps: ["Mix seeds and oats in feeding dish."] },
-            { rank: 2, badge: "🥈", id: "HAM_2", recipe_name: "Broccoli & Egg Bite", match_percent: 96, match: "96% Match", calories: 90, protein: "18g", fat: "5g", carbs: "35g", cook_time: "10 mins", difficulty: "Easy", ingredients: ["Boiled Egg White", "Steamed Broccoli"], quantities: ["10g", "15g"], steps: ["Dice egg white and broccoli into small pieces."] },
-            { rank: 3, badge: "🥉", id: "HAM_3", recipe_name: "Flax & Barley Nibbles", match_percent: 95, match: "95% Match", calories: 100, protein: "15g", fat: "8g", carbs: "42g", cook_time: "5 mins", difficulty: "Easy", ingredients: ["Flaxseed", "Barley Flakes", "Carrot Cubes"], quantities: ["5g", "20g", "10g"], steps: ["Toss seeds, barley, and carrot cubes."] },
-            { rank: 4, badge: "4th", id: "HAM_4", recipe_name: "Mealworm & Grain Bowl", match_percent: 93, match: "93% Match", calories: 110, protein: "20g", fat: "10g", carbs: "38g", cook_time: "5 mins", difficulty: "Easy", ingredients: ["Dried Mealworms", "Millet Seeds"], quantities: ["5g", "20g"], steps: ["Combine mealworms and millet."] },
-            { rank: 5, badge: "5th", id: "HAM_5", recipe_name: "Cucumber & Rice Delight", match_percent: 91, match: "91% Match", calories: 85, protein: "12g", fat: "3g", carbs: "36g", cook_time: "5 mins", difficulty: "Easy", ingredients: ["Cucumber Slice", "Cooked Rice"], quantities: ["10g", "15g"], steps: ["Dice cucumber and mix with plain rice."] }
-        ];
-    } else {
-        // Default Dog
-        return [
-            { rank: 1, badge: "🥇", id: "DOG_1", recipe_name: "Chicken Rice Bowl", match_percent: 98, match: "98% Match", calories: 420, protein: "35g", fat: "14g", carbs: "42g", cook_time: "20 mins", difficulty: "Easy", ingredients: ["Chicken Breast", "White Rice", "Carrots", "Peas"], quantities: ["200g", "150g", "50g", "30g"], steps: ["Boil chicken breast until tender.", "Steam white rice and diced carrots.", "Combine gently and let cool before serving."] },
-            { rank: 2, badge: "🥈", id: "DOG_2", recipe_name: "Turkey Delight", match_percent: 96, match: "96% Match", calories: 380, protein: "32g", fat: "11g", carbs: "38g", cook_time: "25 mins", difficulty: "Easy", ingredients: ["Turkey Breast", "Sweet Potato", "Green Beans"], quantities: ["180g", "140g", "40g"], steps: ["Cook turkey breast thoroughly.", "Steam sweet potato and green beans.", "Mix together."] },
-            { rank: 3, badge: "🥉", id: "DOG_3", recipe_name: "Lamb Lean Mix", match_percent: 95, match: "95% Match", calories: 410, protein: "30g", fat: "15g", carbs: "36g", cook_time: "25 mins", difficulty: "Medium", ingredients: ["Lamb Lean", "Potato", "Celery"], quantities: ["190g", "130g", "45g"], steps: ["Poach lamb lean until fully cooked.", "Dice potato and celery, then mix."] },
-            { rank: 4, badge: "4th", id: "DOG_4", recipe_name: "Pork & Pumpkin Mash", match_percent: 93, match: "93% Match", calories: 360, protein: "28g", fat: "10g", carbs: "34g", cook_time: "20 mins", difficulty: "Easy", ingredients: ["Pork Loin", "Pumpkin Puree", "Oats"], quantities: ["170g", "110g", "35g"], steps: ["Cook pork loin thoroughly.", "Mash pumpkin and oats together.", "Mix with cooked pork."] },
-            { rank: 5, badge: "5th", id: "DOG_5", recipe_name: "Salmon & Veggie Bowl", match_percent: 91, match: "91% Match", calories: 390, protein: "29g", fat: "12g", carbs: "35g", cook_time: "15 mins", difficulty: "Easy", ingredients: ["Salmon Fillet", "Zucchini", "Brown Rice"], quantities: ["160g", "90g", "120g"], steps: ["Pan-sear salmon fillet.", "Steam zucchini slices.", "Serve alongside cooked brown rice."] }
-        ];
-    }
+        return {
+            rank:          idx + 1,
+            badge:         ranks[idx],
+            id:            r.id || `${sp.toUpperCase()}_${item.rawIdx}`,
+            recipe_name:   r.name || 'Healthy Recipe',
+            match_percent: safePct,
+            match:         `${safePct}% Match`,
+            calories:      _parseNutVal(nutr.calories),
+            protein:       nutr.protein ? String(nutr.protein).replace(' g', 'g') : '0g',
+            fat:           nutr.fat     ? String(nutr.fat).replace(' g', 'g')     : '0g',
+            carbs:         nutr.fiber   ? String(nutr.fiber).replace(' g', 'g')   : '0g',
+            cook_time:     r.cookTime   || r.cook_time || '20 mins',
+            difficulty:    r.difficulty || 'Easy',
+            benefits:      Array.isArray(r.benefits) ? r.benefits : [],
+            conditions:    [],
+            ingredients:   ingredientNames,
+            quantities:    ingredientQtys,
+            steps:         Array.isArray(r.steps) ? r.steps : ['Prepare and serve fresh.']
+        };
+    });
 }
+
+
+
+
+
+
+
+
+
 
 window.fetchSmartRecommendations = async function() {
     const name = (document.getElementById('recPetName')?.value || 'Bruno').trim();
@@ -9547,4 +9975,28 @@ window.showRecommendationDetailModal = function(idx) {
 
 fetchSmartRecommendations();
 
-fetchSmartRecommendations();
+// Generic modal escape and click outside listeners
+window.addEventListener('keydown', function(event) {
+  if (event.key === 'Escape') {
+    const openModals = document.querySelectorAll('.modal-overlay:not(.hidden)');
+    openModals.forEach(modal => {
+      const closeBtn = modal.querySelector('.close-btn, .modal-close');
+      if (closeBtn) {
+        closeBtn.click();
+      } else {
+        modal.classList.add('hidden');
+      }
+    });
+  }
+});
+
+window.addEventListener('click', function(event) {
+  if (event.target.classList.contains('modal-overlay')) {
+    const closeBtn = event.target.querySelector('.close-btn, .modal-close');
+    if (closeBtn) {
+      closeBtn.click();
+    } else {
+      event.target.classList.add('hidden');
+    }
+  }
+});
