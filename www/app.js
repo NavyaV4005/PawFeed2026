@@ -84,7 +84,10 @@ const USE_SUPABASE_ONLY = true;
     let VACCINE_SCHEDULE = {};
     let breedCache = {
       Dog: JSON.parse((USE_SUPABASE_ONLY ? null : localStorage.getItem('cachedDogBreeds'))) || [],
-      Cat: JSON.parse((USE_SUPABASE_ONLY ? null : localStorage.getItem('cachedCatBreeds'))) || []
+      Cat: JSON.parse((USE_SUPABASE_ONLY ? null : localStorage.getItem('cachedCatBreeds'))) || [],
+      Rabbit: [],
+      Bird: [],
+      Hamster: []
     };
 
     async function loadReferenceDatasets() {
@@ -102,6 +105,9 @@ const USE_SUPABASE_ONLY = true;
         console.log('Reference datasets loaded successfully');
         fetchBreedData('Dog');
         fetchBreedData('Cat');
+        fetchBreedData('Rabbit');
+        fetchBreedData('Bird');
+        fetchBreedData('Hamster');
       } catch (err) {
         console.error('Failed to load reference datasets:', err);
       }
@@ -167,9 +173,16 @@ const USE_SUPABASE_ONLY = true;
     ].sort();
 
     async function fetchBreedData(species) {
-      if (species !== 'Dog' && species !== 'Cat') return [];
+      if (species !== 'Dog' && species !== 'Cat' && species !== 'Rabbit' && species !== 'Bird' && species !== 'Hamster') return [];
       // Use hardcoded list first (instant, works offline)
-      const hardcoded = species === 'Dog' ? DOG_BREEDS : CAT_BREEDS;
+      let hardcoded = [];
+      if (species === 'Dog') {
+        hardcoded = DOG_BREEDS;
+      } else if (species === 'Cat') {
+        hardcoded = CAT_BREEDS;
+      } else {
+        hardcoded = BREEDS[species] || [];
+      }
       const simplified = hardcoded.map(name => ({ id: name, name }));
       breedCache[species] = simplified;
       return simplified;
@@ -343,22 +356,7 @@ const USE_SUPABASE_ONLY = true;
       pawCache.activePetIdx = 0;
     }
 
-    function initRealtimeSubscriptions() {
-      if (!window.supabaseClient || !currentUser) return;
-      if (window._pawfeedChannel) {
-        try { window.supabaseClient.removeChannel(window._pawfeedChannel); } catch(e) {}
-      }
-      const householdId = currentHouseholdId || currentUser.id;
-      const channel = window.supabaseClient.channel('realtime_user_data_' + currentUser.id);
-      
-      channel.on('postgres_changes', { event: '*', schema: 'public', filter: `household_id=eq.${householdId}` }, async (payload) => {
-        console.log('[PawFeed Realtime] Data change detected in cloud:', payload.table);
-        await fetchAllDataFromSupabase();
-        refreshAllUI();
-      }).subscribe();
-      
-      window._pawfeedChannel = channel;
-    }
+
 
     function loadLocalCache() {
       try {
@@ -823,7 +821,6 @@ const USE_SUPABASE_ONLY = true;
       // Set up fallbacks for development (localhost & local network IP) and production (Render)
       const urlsToTry = [
         `http://localhost:5000${endpoint}`,
-        `http://10.125.108.69:5000${endpoint}`,
         `https://pawfeedmobile.onrender.com${endpoint}`
       ];
 
@@ -1269,7 +1266,6 @@ const USE_SUPABASE_ONLY = true;
         
         loadApp();
         if (s && s.reminders) startAllReminders();
-        refreshAllUI();
         initCalendar();
         setupRealtimeSubscriptions();
         initRealtimeSubscriptions();
@@ -1717,11 +1713,9 @@ const USE_SUPABASE_ONLY = true;
         if (window.supabaseClient) {
           await fetchAllDataFromSupabase();
           loadApp();
-          refreshAllUI();
           initCalendar();
         } else {
           loadApp();
-          refreshAllUI();
           initCalendar();
         }
         return;
@@ -1749,7 +1743,6 @@ const USE_SUPABASE_ONLY = true;
         await fetchAllDataFromSupabase();
         initRealtimeSubscriptions();
         loadApp();
-        refreshAllUI();
         initCalendar();
       } catch (err) {
         showToast('Incorrect email or password.');
@@ -4626,13 +4619,6 @@ const USE_SUPABASE_ONLY = true;
           filter: `household_id=eq.${currentHouseholdId}`
         }, () => scheduleRefresh())
         .on('postgres_changes', {
-          event: '*', schema: 'public', table: 'care_tasks',
-          filter: `household_id=eq.${currentHouseholdId}`
-        }, () => scheduleRefresh())
-        .on('postgres_changes', {
-          event: '*', schema: 'public', table: 'community_posts'
-        }, () => scheduleRefresh(renderCommunity))
-        .on('postgres_changes', {
           event: '*', schema: 'public', table: 'medical_records',
           filter: `household_id=eq.${currentHouseholdId}`
         }, () => scheduleRefresh())
@@ -4684,22 +4670,6 @@ const USE_SUPABASE_ONLY = true;
           event: '*', schema: 'public', table: 'vet_logs',
           filter: `household_id=eq.${currentHouseholdId}`
         }, () => scheduleRefresh())
-        .on('postgres_changes', {
-          event: '*', schema: 'public', table: 'community_comments'
-        }, (payload) => {
-          if (currentCommentPostId && (payload.new?.post_id === currentCommentPostId || payload.old?.post_id === currentCommentPostId)) {
-            fetchCommunityComments(currentCommentPostId);
-          }
-        })
-        .on('postgres_changes', {
-          event: '*', schema: 'public', table: 'direct_messages'
-        }, () => {
-          // Refresh DM if the modal is open
-          const dmModal = document.getElementById('dmModal');
-          if (dmModal && !dmModal.classList.contains('hidden')) {
-            if (typeof refreshDMList === 'function') refreshDMList();
-          }
-        })
         .subscribe((status) => {
           if (status === 'SUBSCRIBED') {
             console.log('[PawFeed RT] Real-time active for household:', currentHouseholdId);
@@ -4721,15 +4691,14 @@ const USE_SUPABASE_ONLY = true;
         ['recipeDetailModal', 'closeRecipeDetailModal'],
         ['commentsModal', 'closeCommentsModal'],
         ['dmModal', 'closeDMModal'],
-        ['galleryModal', 'closeGalleryModal'],
+        ['galleryModal', () => { const m = document.getElementById('galleryModal'); if (m) m.classList.add('hidden'); }],
         ['lightbox', 'closeLightbox'],
-        ['medModal', 'closeMedModal'],
-        ['vetModal', 'closeVetModal'],
-        ['sleepModal', 'closeSleepModal'],
+        ['medicalRecordModal', 'closeMedicalRecordModal'],
+        ['medicalReportModal', 'closeMedicalReportModal'],
         ['updatePasswordModal', 'closeUpdatePasswordModal'],
-        ['taskModal', 'closeTaskModal'],
-        ['expenseModal', 'closeExpenseModal'],
-        ['weightModal', 'closeWeightModal'],
+        ['rescheduleModal', () => { const m = document.getElementById('rescheduleModal'); if (m) m.classList.add('hidden'); }],
+        ['plannerModal', () => { const m = document.getElementById('plannerModal'); if (m) m.classList.add('hidden'); }],
+        ['weightModal', () => { const m = document.getElementById('weightModal'); if (m) m.classList.add('hidden'); }],
       ];
       // Find the topmost visible modal and close it
       for (let i = closeMap.length - 1; i >= 0; i--) {

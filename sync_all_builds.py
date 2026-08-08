@@ -3,16 +3,12 @@ import os
 
 print("Starting master synchronization across all PawFeed app locations...")
 
-base_dir = r"c:\Users\navya\OneDrive\Desktop\pawfeedmobile"
+base_dir = os.path.dirname(os.path.abspath(__file__))
 www_dir = os.path.join(base_dir, "www")
-app2_js = os.path.join(www_dir, "app2.js")
 app_js = os.path.join(www_dir, "app.js")
 index_html = os.path.join(www_dir, "index.html")
 pawfeed00_html = os.path.join(base_dir, "pawfeed00.html")
 
-# 1. Ensure www/app.js is a copy of www/app2.js
-shutil.copyfile(app2_js, app_js)
-print("  [OK] Synchronized www/app2.js -> www/app.js")
 
 # Targets to copy www contents into:
 targets_www = [
@@ -23,7 +19,10 @@ targets_www = [
 
 for t in targets_www:
     if os.path.exists(t):
+        is_mobile_target = "mobile_app" in t
         for f in os.listdir(www_dir):
+            if is_mobile_target and f in ["index.html", "styles.css", "dm-styles.css"]:
+                continue
             src_f = os.path.join(www_dir, f)
             dst_f = os.path.join(t, f)
             if os.path.isfile(src_f):
