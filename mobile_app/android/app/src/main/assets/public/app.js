@@ -271,6 +271,7 @@ const USE_SUPABASE_ONLY = true;
     const API_BASE_URL = (
       window.Capacitor ||
       window.location.protocol === 'capacitor:' ||
+      window.location.hostname.includes('github.io') ||
       (window.location.hostname === 'localhost' && !window.location.port)
     ) ? 'https://pawfeedmobile.onrender.com' : (
       window.location.hostname === 'localhost' ||
@@ -1294,7 +1295,7 @@ const USE_SUPABASE_ONLY = true;
       }
 
       loadLocalCache();
-      await loadReferenceDatasets();
+      loadReferenceDatasets(); // Start loading asynchronously without blocking auth restoration
       
       // Apply dark mode
       const s = getSettings();
@@ -1318,8 +1319,8 @@ const USE_SUPABASE_ONLY = true;
           console.error('Failed to restore Supabase session on init:', e);
         }
 
-        // 3. Fallback to cached local user only if no active Supabase session was found
-        if (!initialSession) {
+        // 3. Fallback to cached local user only if no active Supabase session was found AND we are not undergoing an OAuth redirect
+        if (!initialSession && !isOAuthRedirect) {
           const storedLocalUser = localStorage.getItem('pawfeedCurrentUser');
           if (storedLocalUser) {
             try {
